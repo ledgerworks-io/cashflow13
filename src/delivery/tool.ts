@@ -73,7 +73,7 @@ function leveInTesto(
 
 /** Consegna predefinita: URL temporaneo, per il server remoto. */
 export const deliverByUrl: Deliverer = async (data, filename) => {
-  const { key, expiresAt } = deposito.put(data, filename);
+  const { key, expiresAt } = await deposito.put(data, filename);
   return {
     kind: "url",
     location: `${basePubblica()}/download/${key}`,

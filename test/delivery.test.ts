@@ -17,94 +17,94 @@ beforeEach(() => {
 });
 
 describe("chiavi", () => {
-  it("sono lunghe e non si ripetono", () => {
+  it("sono lunghe e non si ripetono", async () => {
     const chiavi = new Set(
-      Array.from({ length: 200 }, () => store.put(dati(), "a.xlsx").key),
+      await Promise.all(Array.from({ length: 200 }, () => store.put(dati(), "a.xlsx").then((r) => r.key))),
     );
     expect(chiavi.size).toBe(200);
     for (const k of chiavi) expect(k.length).toBeGreaterThanOrEqual(32);
   });
 
-  it("usano solo caratteri validi in un URL", () => {
-    const { key } = store.put(dati(), "a.xlsx");
+  it("usano solo caratteri validi in un URL", async () => {
+    const { key } = await store.put(dati(), "a.xlsx");
     expect(key).toMatch(/^[A-Za-z0-9_-]+$/);
   });
 });
 
 describe("ritiro", () => {
-  it("restituisce il file dentro la finestra", () => {
-    const { key } = store.put(dati(42), "piano.xlsx");
-    const v = store.get(key);
+  it("restituisce il file dentro la finestra", async () => {
+    const { key } = await store.put(dati(42), "piano.xlsx");
+    const v = await store.get(key);
     expect(v?.filename).toBe("piano.xlsx");
     expect(v?.data.length).toBe(42);
   });
 
-  it("si può scaricare PIÙ VOLTE dentro la finestra", () => {
+  it("si può scaricare PIÙ VOLTE dentro la finestra", async () => {
     // Il monouso è ostile: un prefetch del browser brucerebbe il download.
-    const { key } = store.put(dati(), "piano.xlsx");
-    expect(store.get(key)).not.toBeNull();
-    expect(store.get(key)).not.toBeNull();
-    expect(store.get(key)).not.toBeNull();
+    const { key } = await store.put(dati(), "piano.xlsx");
+    expect(await store.get(key)).not.toBeNull();
+    expect(await store.get(key)).not.toBeNull();
+    expect(await store.get(key)).not.toBeNull();
   });
 
-  it("scade allo scadere del TTL", () => {
-    const { key } = store.put(dati(), "piano.xlsx");
+  it("scade allo scadere del TTL", async () => {
+    const { key } = await store.put(dati(), "piano.xlsx");
     adesso += 59_999;
-    expect(store.get(key)).not.toBeNull();
+    expect(await store.get(key)).not.toBeNull();
     adesso += 2;
-    expect(store.get(key)).toBeNull();
+    expect(await store.get(key)).toBeNull();
   });
 
-  it("una chiave inventata dà null, non un errore", () => {
-    expect(store.get("chiave-che-non-esiste")).toBeNull();
-    expect(store.get("")).toBeNull();
+  it("una chiave inventata dà null, non un errore", async () => {
+    expect(await store.get("chiave-che-non-esiste")).toBeNull();
+    expect(await store.get("")).toBeNull();
   });
 
-  it("libera la memoria quando una voce scade", () => {
-    const { key } = store.put(dati(500), "piano.xlsx");
+  it("libera la memoria quando una voce scade", async () => {
+    const { key } = await store.put(dati(500), "piano.xlsx");
     expect(store.totalBytes()).toBe(500);
     adesso += 60_001;
-    store.get(key);
+    await store.get(key);
     expect(store.totalBytes()).toBe(0);
     expect(store.size()).toBe(0);
   });
 });
 
 describe("tetti contro l'abuso", () => {
-  it("non supera il numero massimo di voci", () => {
-    for (let i = 0; i < 10; i++) store.put(dati(10), `f${i}.xlsx`);
+  it("non supera il numero massimo di voci", async () => {
+    for (let i = 0; i < 10; i++) await store.put(dati(10), `f${i}.xlsx`);
     expect(store.size()).toBeLessThanOrEqual(3);
   });
 
-  it("sfratta la voce più vecchia quando è pieno", () => {
-    const a = store.put(dati(10), "a.xlsx").key;
+  it("sfratta la voce più vecchia quando è pieno", async () => {
+    const a = (await store.put(dati(10), "a.xlsx")).key;
     adesso += 10;
-    const b = store.put(dati(10), "b.xlsx").key;
+    const b = (await store.put(dati(10), "b.xlsx")).key;
     adesso += 10;
-    const c = store.put(dati(10), "c.xlsx").key;
+    const c = (await store.put(dati(10), "c.xlsx")).key;
     adesso += 10;
-    store.put(dati(10), "d.xlsx"); // supera maxEntries=3
-    expect(store.get(a)).toBeNull();      // la più vecchia se ne va
-    expect(store.get(b)).not.toBeNull();
-    expect(store.get(c)).not.toBeNull();
+    await store.put(dati(10), "d.xlsx"); // supera maxEntries=3
+    expect(await store.get(a)).toBeNull();      // la più vecchia se ne va
+    expect(await store.get(b)).not.toBeNull();
+    expect(await store.get(c)).not.toBeNull();
   });
 
-  it("non supera il tetto di byte complessivi", () => {
-    for (let i = 0; i < 5; i++) store.put(dati(400), `f${i}.xlsx`);
+  it("non supera il tetto di byte complessivi", async () => {
+    for (let i = 0; i < 5; i++) await store.put(dati(400), `f${i}.xlsx`);
     expect(store.totalBytes()).toBeLessThanOrEqual(1000);
   });
 
-  it("rifiuta un file più grande del tetto invece di svuotare tutto", () => {
-    store.put(dati(100), "piccolo.xlsx");
-    expect(() => store.put(dati(2000), "enorme.xlsx")).toThrow();
+  it("rifiuta un file più grande del tetto invece di svuotare tutto", async () => {
+    await store.put(dati(100), "piccolo.xlsx");
+    await expect(store.put(dati(2000), "enorme.xlsx")).rejects.toThrow();
     // Il file già depositato non deve essere stato sacrificato.
     expect(store.size()).toBe(1);
   });
 });
 
 describe("scadenza dichiarata", () => {
-  it("torna il momento esatto in cui il link muore", () => {
-    const { expiresAt } = store.put(dati(), "piano.xlsx");
+  it("torna il momento esatto in cui il link muore", async () => {
+    const { expiresAt } = await store.put(dati(), "piano.xlsx");
     expect(expiresAt).toBe(adesso + 60_000);
   });
 });

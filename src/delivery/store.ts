@@ -1,5 +1,8 @@
 import { randomBytes } from "node:crypto";
 
+import { ApifyKeyValueStore } from "./apify-store.js";
+import type { BlobStore, StoredBlob } from "./blob-store.js";
+
 /**
  * Deposito temporaneo dei file da scaricare.
  *
@@ -39,7 +42,7 @@ interface Voce {
 
 export const TTL_PREDEFINITO_MS = 60 * 60 * 1000; // 60 minuti
 
-export class DownloadStore {
+export class DownloadStore implements BlobStore {
   readonly #ttlMs: number;
   readonly #maxEntries: number;
   readonly #maxTotalBytes: number;
@@ -55,7 +58,7 @@ export class DownloadStore {
     this.#now = o.now ?? Date.now;
   }
 
-  put(data: Buffer, filename: string): { key: string; expiresAt: number } {
+  async put(data: Buffer, filename: string): Promise<{ key: string; expiresAt: number }> {
     if (data.length > this.#maxTotalBytes) {
       // Meglio un errore chiaro che svuotare il deposito per far posto a un
       // file che comunque non ci sta.
@@ -82,7 +85,7 @@ export class DownloadStore {
 
   /** Il file, se il link è ancora vivo. Scaricabile più volte: il monouso
    *  verrebbe bruciato da un prefetch del browser o da un antivirus. */
-  get(key: string): { data: Buffer; filename: string } | null {
+  async get(key: string): Promise<StoredBlob | null> {
     const v = this.#voci.get(key);
     if (!v) return null;
     if (v.expiresAt <= this.#now()) {
@@ -90,6 +93,10 @@ export class DownloadStore {
       return null;
     }
     return { data: v.data, filename: v.filename };
+  }
+
+  async drop(key: string): Promise<void> {
+    this.#rimuovi(key);
   }
 
   size(): number {
@@ -120,5 +127,12 @@ export class DownloadStore {
   }
 }
 
-/** Deposito del processo. */
-export const deposito = new DownloadStore();
+/**
+ * Il deposito del processo.
+ *
+ * Su Apify si appoggia all'archivio chiave-valore, perche' li' i contenitori si
+ * spengono e si moltiplicano e la memoria non e' condivisa. Altrove resta in
+ * memoria, che e' piu' semplice e non tocca nessun disco.
+ */
+export const deposito: BlobStore =
+  ApifyKeyValueStore.fromEnvironment() ?? new DownloadStore();

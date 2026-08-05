@@ -41,9 +41,10 @@ app.use(express.json({ limit: "1mb" }));
  * risorsa (provato il 2026-08-05, vedi delivery/store.ts). Un URL invece passa,
  * perche' per il protocollo e' testo e lo scaricamento lo fa il browser.
  */
-app.get("/download/:chiave", (req: Request, res: Response) => {
+app.get("/download/:chiave", async (req: Request, res: Response) => {
   const chiave = req.params.chiave;
-  const voce = deposito.get(typeof chiave === "string" ? chiave : "");
+  const id = typeof chiave === "string" ? chiave : "";
+  const voce = await deposito.get(id);
   if (!voce) {
     // 410 e non 404: la risorsa e' esistita ed e' scaduta. E il messaggio deve
     // dire all'utente cosa fare, non lasciarlo davanti a un errore secco.
@@ -62,6 +63,9 @@ app.get("/download/:chiave", (req: Request, res: Response) => {
   // condivisa, ne' sul proxy ne' sull'edge.
   res.setHeader("Cache-Control", "no-store, private");
   res.end(voce.data);
+  // Consegnato: il file ha finito il suo lavoro. Su Apify questo toglie i byte
+  // dal disco della piattaforma senza aspettare la scadenza.
+  void deposito.drop(id);
 });
 
 // Sonda per systemd e per un controllo a occhio. Non fa parte del protocollo MCP.
