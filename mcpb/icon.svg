@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!--
+    L'icona è il prodotto: una linea di cassa che scende e attraversa lo zero,
+    col punto di rottura marcato.
+
+    Progettata per i 48 px, non per i 512: a quella dimensione sopravvivono solo
+    tre cose — la diagonale, l'asse dello zero e il punto giallo. Tutto il resto
+    (griglia delle settimane, riempimento sotto zero) è contorno che appare
+    quando c'è spazio e scompare senza rompere niente.
+  -->
+  <defs>
+    <linearGradient id="sfondo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1B2B47"/>
+      <stop offset="1" stop-color="#0B1322"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#sfondo)"/>
+
+  <!-- Le settimane, appena accennate: puro contorno -->
+  <g stroke="#FFFFFF" stroke-opacity="0.06" stroke-width="3">
+    <path d="M104 96V424M152 96V424M200 96V424M248 96V424M296 96V424M344 96V424M392 96V424"/>
+  </g>
+
+  <!-- Sotto zero: il fabbisogno -->
+  <path d="M256 272 L456 384 L456 272 Z" fill="#E5484D" fill-opacity="0.28"/>
+
+  <!-- Lo zero: pieno, così sopravvive alla riduzione -->
+  <line x1="40" y1="272" x2="472" y2="272"
+        stroke="#7C93B4" stroke-opacity="0.75" stroke-width="10" stroke-linecap="round"/>
+
+  <!-- La cassa sopra zero -->
+  <polyline points="56,120 156,196 256,272"
+            fill="none" stroke="#FFFFFF" stroke-width="42"
+            stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- e sotto -->
+  <polyline points="256,272 360,330 456,384"
+            fill="none" stroke="#E5484D" stroke-width="42"
+            stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Il punto di rottura: il numero per cui si apre lo strumento -->
+  <circle cx="256" cy="272" r="52" fill="#0B1322"/>
+  <circle cx="256" cy="272" r="34" fill="#FFB224"/>
+</svg>

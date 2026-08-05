@@ -20,6 +20,7 @@ mkdirSync(build, { recursive: true });
 cpSync(join(radice, "dist"), join(build, "dist"), { recursive: true });
 cpSync(join(radice, "package.json"), join(build, "package.json"));
 cpSync(join(radice, "LICENSE"), join(build, "LICENSE"));
+cpSync(join(radice, "mcpb", "icon.png"), join(build, "icon.png"));
 
 // Il manifest vive nel repo; la versione la prende da package.json, cosi' non
 // esistono due numeri che possono divergere.
