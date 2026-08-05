@@ -25,8 +25,9 @@ const argomenti = process.argv.slice(2);
 const pubblica = argomenti.includes("--publish");
 const versioneRichiesta = argomenti[argomenti.indexOf("--version") + 1];
 
+// Con stdio "ignore" execFileSync restituisce null, non una stringa.
 const sh = (cmd, args, opts = {}) =>
-  execFileSync(cmd, args, { cwd: radice, encoding: "utf8", ...opts }).trim();
+  (execFileSync(cmd, args, { cwd: radice, encoding: "utf8", ...opts }) ?? "").trim();
 
 const passo = (t) => console.log(`\n\x1b[1m▸ ${t}\x1b[0m`);
 const ok = (t) => console.log(`  ✓ ${t}`);
