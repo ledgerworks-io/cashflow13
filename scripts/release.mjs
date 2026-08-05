@@ -47,7 +47,7 @@ ok(`albero pulito, su ${sh("git", ["rev-parse", "--abbrev-ref", "HEAD"])}`);
 passo("Test e tipi");
 sh("npm", ["run", "typecheck"]);
 ok("typecheck");
-const test = sh("npx", ["vitest", "run", "--reporter=basic"]);
+const test = sh("npx", ["vitest", "run"]);
 ok(test.split("\n").find((r) => r.includes("Tests"))?.trim() ?? "test passati");
 
 // --- 3. Versione, in un posto solo ---------------------------------------
