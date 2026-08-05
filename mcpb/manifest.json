@@ -1,0 +1,66 @@
+{
+  "manifest_version": "0.2",
+  "name": "cashflow13",
+  "display_name": "13-Week Cash Flow Plan",
+  "version": "0.1.0",
+  "description": "13-week cash flow plan with a live Excel workbook, not just an answer in chat.",
+  "long_description": "Answers the question people actually open a cash flow tool for: **which week does cash go negative, and by how much.**\n\nSix figures in — opening cash, expected receipts, supplier payments, payroll, loan instalments, VAT and taxes due. Out comes the 13-week grid, the break-even week, the peak funding need over the period, and two or three calculated levers: what collecting 15 days earlier would buy you, what moving payroll a week would.\n\nAnd a **live Excel workbook**: input cells you can edit, real formulas underneath, recalculation on open. Not a picture of a model — the model.\n\nRunning as a desktop extension, the server runs on your own machine. Your figures never leave it, and the workbook is written straight to disk.",
+  "author": {
+    "name": "Alessandro Bonzio",
+    "email": "info@chiriba.com",
+    "url": "https://mcp.chiriba.it"
+  },
+  "homepage": "https://mcp.chiriba.it",
+  "documentation": "https://github.com/ledgerworks-io/cashflow13#readme",
+  "support": "https://github.com/ledgerworks-io/cashflow13/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ledgerworks-io/cashflow13"
+  },
+  "license": "BUSL-1.1",
+  "keywords": [
+    "cash flow",
+    "excel",
+    "finance",
+    "treasury",
+    "cfo",
+    "forecasting"
+  ],
+  "server": {
+    "type": "node",
+    "entry_point": "dist/stdio.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/stdio.js"],
+      "env": {
+        "CASHFLOW13_OUTPUT_DIR": "${user_config.output_directory}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "build_cashflow_plan",
+      "description": "Build the 13-week cash flow plan and write the Excel workbook to disk."
+    },
+    {
+      "name": "health",
+      "description": "Report server status, version and supported languages."
+    }
+  ],
+  "tools_generated": false,
+  "user_config": {
+    "output_directory": {
+      "type": "directory",
+      "title": "Where to save workbooks",
+      "description": "Folder the Excel file is written to. Existing files are never overwritten.",
+      "required": false,
+      "default": "${HOME}/Downloads"
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  }
+}

@@ -7,6 +7,7 @@ import {
   resolveLocale,
   t,
 } from "./i18n/index.js";
+import type { Deliverer } from "./delivery/index.js";
 import { registraStrumentoCartella } from "./delivery/tool.js";
 import { VERSION } from "./version.js";
 
@@ -21,7 +22,7 @@ import { VERSION } from "./version.js";
  * Il motore del piano di cassa entrera' come strumenti aggiuntivi su questa
  * stessa istanza: un solo motore, piu' strumenti sopra.
  */
-export function createMcpServer(): McpServer {
+export function createMcpServer(deliver?: Deliverer): McpServer {
   const server = new McpServer(
     {
       name: "cashflow13",
@@ -65,7 +66,7 @@ export function createMcpServer(): McpServer {
     },
   );
 
-  registraStrumentoCartella(server);
+  registraStrumentoCartella(server, deliver);
 
   return server;
 }

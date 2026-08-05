@@ -6,6 +6,7 @@ import { computeLevers, type Lever } from "../engine/levers.js";
 import { buildPlan } from "../engine/plan.js";
 import { generateWorkbook } from "../excel/workbook.js";
 import { SUPPORTED_LOCALES, resolveLocale, t, tn } from "../i18n/index.js";
+import type { Deliverer } from "./index.js";
 import { deposito } from "./store.js";
 
 export const NOME_FILE = "cashflow13-plan.xlsx";
@@ -60,7 +61,20 @@ function leveInTesto(
   return [`**${t("lever.heading", lang)}**`, "", ...righe].join("\n");
 }
 
-export function registraStrumentoCartella(server: McpServer): void {
+/** Consegna predefinita: URL temporaneo, per il server remoto. */
+export const deliverByUrl: Deliverer = async (data, filename) => {
+  const { key, expiresAt } = deposito.put(data, filename);
+  return {
+    kind: "url",
+    location: `${BASE_PUBBLICA}/download/${key}`,
+    expiresAt: new Date(expiresAt).toISOString(),
+  };
+};
+
+export function registraStrumentoCartella(
+  server: McpServer,
+  deliver: Deliverer = deliverByUrl,
+): void {
   server.registerTool(
     "build_cashflow_plan",
     {
@@ -125,7 +139,7 @@ export function registraStrumentoCartella(server: McpServer): void {
 
       const leve = computeLevers(normalizeInputs(args), plan);
       const dati = await generateWorkbook(plan, { currency });
-      const { key, expiresAt } = deposito.put(dati, NOME_FILE);
+      const consegna = await deliver(dati, NOME_FILE);
 
       const payload = {
         firstNegativeWeek: plan.firstNegativeWeek,
@@ -159,9 +173,12 @@ export function registraStrumentoCartella(server: McpServer): void {
           avoidsShortfall: l.avoidsShortfall,
           movesBeyondHorizon: l.movesBeyondHorizon,
         })),
-        downloadUrl: `${BASE_PUBBLICA}/download/${key}`,
-        filename: NOME_FILE,
-        expiresAt: new Date(expiresAt).toISOString(),
+        workbook: {
+          delivery: consegna.kind,
+          location: consegna.location,
+          filename: NOME_FILE,
+          ...(consegna.expiresAt ? { expiresAt: consegna.expiresAt } : {}),
+        },
       };
 
       const titolo = plan.firstNegativeWeek === null
@@ -175,8 +192,10 @@ export function registraStrumentoCartella(server: McpServer): void {
         "",
         leveInTesto(leve, lang, currency),
         "",
-        t("tool.workbook.ready", lang),
-        payload.downloadUrl,
+        consegna.kind === "file"
+          ? t("tool.workbook.saved", lang)
+          : t("tool.workbook.ready", lang),
+        consegna.location,
         "",
         t("tool.workbook.hint", lang),
       ].join("\n");
