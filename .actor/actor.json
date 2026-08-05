@@ -1,0 +1,37 @@
+{
+  "actorSpecification": 1,
+  "name": "cashflow13",
+  "title": "13-Week Cash Flow Plan",
+  "description": "13-week cash flow plan with a live Excel workbook, not just an answer in chat.",
+  "version": "0.1",
+  "buildTag": "latest",
+  "dockerfile": "./Dockerfile",
+  "meta": {
+    "licence": "BUSL-1.1"
+  },
+  "webServerMcpPath": "/mcp",
+  "storages": {
+    "dataset": {
+      "actorSpecification": 1,
+      "title": "13-week cash flow plans",
+      "views": {
+        "overview": {
+          "title": "Overview",
+          "transformation": {
+            "fields": [
+              "firstNegativeWeek",
+              "firstNegativeWeekEnding",
+              "shortfallAtFirstNegative",
+              "peakFundingNeed",
+              "lowestClosingBalance",
+              "currency"
+            ]
+          },
+          "display": {
+            "component": "table"
+          }
+        }
+      }
+    }
+  }
+}

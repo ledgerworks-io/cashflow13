@@ -7,12 +7,27 @@ import { t } from "./i18n/index.js";
 import { createMcpServer } from "./server.js";
 import { PACKAGE_NAME, VERSION } from "./version.js";
 
-const PORT = Number(process.env.PORT ?? 8770);
-// Si ascolta solo in locale: davanti c'e' Caddy, che fa TLS e instrada per
-// percorso. Il servizio non deve essere raggiungibile direttamente da fuori.
-const HOST = process.env.HOST ?? "127.0.0.1";
+// Su Apify la porta la decide la piattaforma; sul nostro VPS e' la 8770.
+const PORT = Number(process.env.ACTOR_WEB_SERVER_PORT ?? process.env.PORT ?? 8770);
+
+// Sul VPS si ascolta solo in locale: davanti c'e' Caddy, che fa TLS e instrada
+// per percorso, e il servizio non dev'essere raggiungibile direttamente.
+// In un contenitore invece bisogna esporsi, o la piattaforma non ci arriva.
+const IN_CONTENITORE = process.env.ACTOR_WEB_SERVER_PORT !== undefined;
+const HOST = process.env.HOST ?? (IN_CONTENITORE ? "0.0.0.0" : "127.0.0.1");
 
 const app = express();
+
+// Apify tiene l'attore in Standby e prima di mandargli traffico chiede se e'
+// pronto, con questa intestazione. Va risposto subito e su qualunque percorso:
+// se non si risponde, l'attore resta fermo e nessuno capisce perche'.
+app.use((req: Request, res: Response, next) => {
+  if (req.headers["x-apify-container-server-readiness-probe"] !== undefined) {
+    res.status(200).type("text/plain").send("ok");
+    return;
+  }
+  next();
+});
 // Express annuncia se stesso con `X-Powered-By`: e' informazione regalata a chi
 // cerca bersagli, e non serve a nessun client.
 app.disable("x-powered-by");

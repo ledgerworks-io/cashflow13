@@ -10,7 +10,17 @@ import type { Deliverer } from "./index.js";
 import { deposito } from "./store.js";
 
 export const NOME_FILE = "cashflow13-plan.xlsx";
-export const BASE_PUBBLICA = process.env.BASE_PUBBLICA ?? "https://mcp.chiriba.it";
+
+/**
+ * L'indirizzo pubblico da cui si scarica il file. Letto a ogni chiamata e non
+ * una volta sola: su Apify l'URL dell'attore in Standby lo assegna la
+ * piattaforma, e non e' detto sia noto quando il modulo viene caricato.
+ */
+export function basePubblica(): string {
+  const apify = process.env.ACTOR_STANDBY_URL;
+  if (apify && apify.trim() !== "") return apify.trim().replace(/\/+$/, "");
+  return process.env.BASE_PUBBLICA ?? "https://mcp.chiriba.it";
+}
 
 /** Un numero (uguale ogni settimana) oppure tredici. */
 const flusso = z.union([z.number(), z.array(z.number()).length(13)]);
@@ -66,7 +76,7 @@ export const deliverByUrl: Deliverer = async (data, filename) => {
   const { key, expiresAt } = deposito.put(data, filename);
   return {
     kind: "url",
-    location: `${BASE_PUBBLICA}/download/${key}`,
+    location: `${basePubblica()}/download/${key}`,
     expiresAt: new Date(expiresAt).toISOString(),
   };
 };
