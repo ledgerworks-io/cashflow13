@@ -26,8 +26,6 @@ const GRIGIO = "FFF2F2F2"; // intestazioni
 const ROSSO = "FFFCE8E6"; // le risposte, e le settimane sotto zero
 const VERDE = "FFEAF6EC";
 
-const iso = (d: Date): string => d.toISOString().slice(0, 10);
-
 export interface WorkbookOptions {
   /** Sola etichetta: non si converte niente. */
   currency?: string;
@@ -45,17 +43,10 @@ export async function generateWorkbook(
 
   const ws = wb.addWorksheet("13-Week Cash Flow");
   const w1 = plan.weeks[0];
-  const w13 = plan.weeks[plan.weeks.length - 1];
-  if (!w1 || !w13) throw new Error("piano senza settimane");
+  if (!w1) throw new Error("piano senza settimane");
 
   ws.getCell("A1").value = "13-Week Cash Flow Plan";
   ws.getCell("A1").font = { bold: true, size: 16 };
-  // La convenzione va scritta nel file: chi lo riceve deve sapere cosa sta
-  // guardando senza doverlo chiedere a chi gliel'ha mandato.
-  ws.getCell("A2").value =
-    `Weeks end on ${plan.weekEndsOn} · Week 1 ends ${iso(w1.weekEnding)}` +
-    ` · Week 13 ends ${iso(w13.weekEnding)} · All figures in ${currency}`;
-  ws.getCell("A2").font = { italic: true, color: { argb: "FF666666" } };
 
   ws.getCell("A4").value =
     "Yellow cells are inputs — change any of them and the whole plan recalculates.";
@@ -91,8 +82,22 @@ export async function generateWorkbook(
     const r = PRIMA + i;
     const row = ws.getRow(r);
     row.getCell(1).value = w.week;
-    row.getCell(2).value = w.weekEnding;
-    row.getCell(2).numFmt = "yyyy-mm-dd";
+    // La data di chiusura della settimana 1 e' un INPUT; le altre dodici la
+    // seguono a sette giorni di distanza. Cambi la settimana di partenza in una
+    // cella sola e tutto il calendario si sposta — prima erano tredici valori
+    // fissi da correggere a mano.
+    const cellaData = row.getCell(2);
+    if (i === 0) {
+      cellaData.value = w.weekEnding;
+      cellaData.fill = { type: "pattern", pattern: "solid", fgColor: { argb: GIALLO } };
+      cellaData.border = {
+        top: { style: "thin" }, left: { style: "thin" },
+        bottom: { style: "thin" }, right: { style: "thin" },
+      };
+    } else {
+      cellaData.value = { formula: `B${r - 1}+7` };
+    }
+    cellaData.numFmt = "yyyy-mm-dd";
 
     // Apertura: la prima prende la cella del saldo iniziale, le altre la
     // chiusura di sopra. E' la catena che rende vivo tutto il resto.
@@ -166,6 +171,18 @@ export async function generateWorkbook(
     else if (i >= 2) c.numFmt = "#,##0";
     c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: ROSSO } };
   });
+
+  // L'intestazione e' una FORMULA, non testo fisso: se l'utente sposta la
+  // settimana di partenza, la riga che dichiara la convenzione deve seguirla.
+  // Un file che dice "chiude di venerdì" mentre le date sono di lunedì e' peggio
+  // di un file senza intestazione. TEXT(...,"dddd") ricava il giorno dalla data,
+  // quindi si corregge da solo anche se cambia il giorno di chiusura.
+  ws.getCell("A2").value = {
+    formula:
+      `"Weeks end on "&TEXT($B$${PRIMA},"dddd")&" · Week 1 ends "&TEXT($B$${PRIMA},"yyyy-mm-dd")` +
+      `&" · Week 13 ends "&TEXT($B$${ULTIMA},"yyyy-mm-dd")&" · All figures in ${currency}"`,
+  };
+  ws.getCell("A2").font = { italic: true, color: { argb: "FF666666" } };
 
   ws.getColumn(1).width = 34;
   ws.getColumn(2).width = 14;

@@ -2,9 +2,10 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
 import { MissingInputsError, normalizeInputs } from "../engine/inputs.js";
+import { computeLevers, type Lever } from "../engine/levers.js";
 import { buildPlan } from "../engine/plan.js";
 import { generateWorkbook } from "../excel/workbook.js";
-import { SUPPORTED_LOCALES, resolveLocale, t } from "../i18n/index.js";
+import { SUPPORTED_LOCALES, resolveLocale, t, tn } from "../i18n/index.js";
 import { deposito } from "./store.js";
 
 export const NOME_FILE = "cashflow13-plan.xlsx";
@@ -31,6 +32,32 @@ function tabella(plan: ReturnType<typeof buildPlan>, currency: string): string {
     "|---:|---|---:|---:|---:|---:|",
     ...righe,
   ].join("\n");
+}
+
+/** Le leve in prosa: una riga ciascuna, con l'effetto in cifre. */
+function leveInTesto(
+  leve: Lever[],
+  lang: Parameters<typeof t>[1],
+  currency: string,
+): string {
+  const n = (v: number) => v.toLocaleString("en-US", { maximumFractionDigits: 0 });
+  const righe = leve.map((l) => {
+    const etichetta = tn(l.labelKey as never, l.days, lang);
+    let effetto: string;
+    if (l.avoidsShortfall) {
+      effetto = `**${t("lever.avoids", lang)}**`;
+    } else if (l.weeksGained && l.weeksGained > 0) {
+      effetto = tn("lever.gains_weeks", l.weeksGained, lang);
+    } else {
+      effetto = t("lever.no_change", lang);
+    }
+    const soldi = l.peakFundingDelta < 0
+      ? ` · ${t("lever.peak_need", lang)} ${n(l.peakFundingNeed)} ${currency} (${n(l.peakFundingDelta)})`
+      : "";
+    const nota = l.movesBeyondHorizon ? `\n  _${t("lever.beyond_horizon", lang)}_` : "";
+    return `- **${etichetta}** — ${effetto}${soldi}${nota}`;
+  });
+  return [`**${t("lever.heading", lang)}**`, "", ...righe].join("\n");
 }
 
 export function registraStrumentoCartella(server: McpServer): void {
@@ -96,6 +123,7 @@ export function registraStrumentoCartella(server: McpServer): void {
         throw err;
       }
 
+      const leve = computeLevers(normalizeInputs(args), plan);
       const dati = await generateWorkbook(plan, { currency });
       const { key, expiresAt } = deposito.put(dati, NOME_FILE);
 
@@ -121,6 +149,16 @@ export function registraStrumentoCartella(server: McpServer): void {
           netMovement: w.netMovement,
           closing: w.closing,
         })),
+        levers: leve.map((l) => ({
+          id: l.id,
+          days: l.days,
+          firstNegativeWeek: l.firstNegativeWeek,
+          peakFundingNeed: l.peakFundingNeed,
+          peakFundingDelta: l.peakFundingDelta,
+          weeksGained: l.weeksGained,
+          avoidsShortfall: l.avoidsShortfall,
+          movesBeyondHorizon: l.movesBeyondHorizon,
+        })),
         downloadUrl: `${BASE_PUBBLICA}/download/${key}`,
         filename: NOME_FILE,
         expiresAt: new Date(expiresAt).toISOString(),
@@ -134,6 +172,8 @@ export function registraStrumentoCartella(server: McpServer): void {
         titolo,
         "",
         tabella(plan, currency),
+        "",
+        leveInTesto(leve, lang, currency),
         "",
         t("tool.workbook.ready", lang),
         payload.downloadUrl,

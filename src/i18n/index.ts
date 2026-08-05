@@ -56,3 +56,19 @@ export function t(key: StringKey, locale: Locale = DEFAULT_LOCALE): string {
   const entry = STRINGS[key];
   return entry[locale] || entry[DEFAULT_LOCALE];
 }
+
+/**
+ * Traduce con il numero: usa la chiave `<key>_one` quando n vale 1, e
+ * sostituisce {n} altrove. Serve per non scrivere "1 settimana/e".
+ *
+ * Inglese e italiano condividono la stessa regola (uno contro tutto il resto).
+ * Una lingua con piu' forme plurali richiedera' un vero selettore: quando
+ * succedera' cambia questa funzione, non i punti che la chiamano.
+ */
+export function tn(key: StringKey, n: number, locale: Locale = DEFAULT_LOCALE): string {
+  if (Math.abs(n) === 1) {
+    const singolare = `${key}_one` as StringKey;
+    if (singolare in STRINGS) return t(singolare, locale);
+  }
+  return t(key, locale).replace("{n}", String(n));
+}

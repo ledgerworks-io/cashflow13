@@ -54,6 +54,62 @@ export const STRINGS = {
     it: "Aprila in Excel: ogni cella gialla è modificabile, e il piano si ricalcola man mano che le cambi.",
   },
 
+  // --- Leve ---------------------------------------------------------------
+  "lever.heading": {
+    en: "What would move the date",
+    it: "Cosa sposterebbe la data",
+  },
+  // Le chiavi in coppia `_one` reggono il singolare: "1 settimana", non
+  // "1 settimana/e". La barra e' un modo per non decidere, e si vede.
+  "lever.collect_earlier": {
+    en: "Collect {n} days earlier",
+    it: "Incassare {n} giorni prima",
+  },
+  "lever.collect_earlier_one": {
+    en: "Collect 1 day earlier",
+    it: "Incassare 1 giorno prima",
+  },
+  "lever.pay_later": {
+    en: "Pay suppliers {n} days later",
+    it: "Pagare i fornitori {n} giorni dopo",
+  },
+  "lever.pay_later_one": {
+    en: "Pay suppliers 1 day later",
+    it: "Pagare i fornitori 1 giorno dopo",
+  },
+  "lever.shift_payroll": {
+    en: "Move payroll {n} weeks later",
+    it: "Spostare gli stipendi di {n} settimane",
+  },
+  "lever.shift_payroll_one": {
+    en: "Move payroll one week later",
+    it: "Spostare gli stipendi di una settimana",
+  },
+  "lever.avoids": {
+    en: "cash never goes negative",
+    it: "la cassa non va mai sotto zero",
+  },
+  "lever.gains_weeks": {
+    en: "buys {n} more weeks",
+    it: "guadagna {n} settimane",
+  },
+  "lever.gains_weeks_one": {
+    en: "buys one more week",
+    it: "guadagna una settimana",
+  },
+  "lever.peak_need": {
+    en: "peak need",
+    it: "fabbisogno massimo",
+  },
+  "lever.no_change": {
+    en: "does not move the date",
+    it: "non sposta la data",
+  },
+  "lever.beyond_horizon": {
+    en: "note: one payment falls after week 13 — deferred, not saved",
+    it: "attenzione: un pagamento cade dopo la settimana 13 — rinviato, non risparmiato",
+  },
+
   // --- Errori ------------------------------------------------------------
   "error.link_expired": {
     en: "This download link has expired. Ask for the plan again to get a fresh one.",
