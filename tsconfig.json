@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+
+    "rootDir": "src",
+    "outDir": "dist",
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+
+    // exactOptionalPropertyTypes resta SPENTO di proposito.
+    // Le dichiarazioni di @modelcontextprotocol/sdk non sono scritte per quel
+    // flag: la modalita' senza stato richiede di passare esplicitamente
+    // `sessionIdGenerator: undefined`, e l'interfaccia Transport dichiara
+    // `onclose?: () => void`. Tenerlo acceso significa un cast a ogni confine
+    // con l'SDK, per sempre. Le protezioni che contano sui numeri — strict e
+    // noUncheckedIndexedAccess — restano attive.
+
+    "declaration": true,
+    "sourceMap": true,
+    "removeComments": false,
+
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "test"]
+}

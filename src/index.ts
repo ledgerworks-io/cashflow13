@@ -1,0 +1,115 @@
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import express, { type Request, type Response } from "express";
+
+import { deposito } from "./delivery/store.js";
+import { XLSX_MIME } from "./excel/workbook.js";
+import { t } from "./i18n/index.js";
+import { createMcpServer } from "./server.js";
+import { PACKAGE_NAME, VERSION } from "./version.js";
+
+const PORT = Number(process.env.PORT ?? 8770);
+// Si ascolta solo in locale: davanti c'e' Caddy, che fa TLS e instrada per
+// percorso. Il servizio non deve essere raggiungibile direttamente da fuori.
+const HOST = process.env.HOST ?? "127.0.0.1";
+
+const app = express();
+// Express annuncia se stesso con `X-Powered-By`: e' informazione regalata a chi
+// cerca bersagli, e non serve a nessun client.
+app.disable("x-powered-by");
+app.use(express.json({ limit: "1mb" }));
+
+/**
+ * Ritiro della cartella Excel.
+ *
+ * Questa rotta esiste perche' il protocollo MCP non riesce a consegnare un
+ * binario: il client rifiuta sia le risorse incorporate sia i collegamenti a
+ * risorsa (provato il 2026-08-05, vedi delivery/store.ts). Un URL invece passa,
+ * perche' per il protocollo e' testo e lo scaricamento lo fa il browser.
+ */
+app.get("/download/:chiave", (req: Request, res: Response) => {
+  const chiave = req.params.chiave;
+  const voce = deposito.get(typeof chiave === "string" ? chiave : "");
+  if (!voce) {
+    // 410 e non 404: la risorsa e' esistita ed e' scaduta. E il messaggio deve
+    // dire all'utente cosa fare, non lasciarlo davanti a un errore secco.
+    res.status(410).type("text/plain; charset=utf-8").send(
+      `${t("error.link_expired", "en")}\n${t("error.link_expired", "it")}\n`,
+    );
+    return;
+  }
+  res.setHeader("Content-Type", XLSX_MIME);
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${voce.filename}"`,
+  );
+  res.setHeader("Content-Length", String(voce.data.length));
+  // Il file contiene numeri dell'utente dietro un URL pubblico: niente cache
+  // condivisa, ne' sul proxy ne' sull'edge.
+  res.setHeader("Cache-Control", "no-store, private");
+  res.end(voce.data);
+});
+
+// Sonda per systemd e per un controllo a occhio. Non fa parte del protocollo MCP.
+app.get("/healthz", (_req: Request, res: Response) => {
+  res.json({ status: "ok", service: PACKAGE_NAME, version: VERSION });
+});
+
+/**
+ * Endpoint MCP, trasporto Streamable HTTP in modalita' SENZA STATO.
+ *
+ * Un server e un trasporto nuovi a ogni richiesta, chiusi appena la risposta e'
+ * partita: nessuna sessione in memoria, nessuna coda di eventi, niente che
+ * cresca. E' la scelta giusta finche' lo strumento calcola e restituisce;
+ * quando servira' lo streaming di lavori lunghi si passera' alle sessioni.
+ */
+app.post("/mcp", async (req: Request, res: Response) => {
+  const server = createMcpServer();
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: undefined,
+    enableJsonResponse: true,
+  });
+
+  res.on("close", () => {
+    void transport.close();
+    void server.close();
+  });
+
+  try {
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+  } catch (err) {
+    console.error("[mcp] richiesta fallita:", err);
+    if (!res.headersSent) {
+      res.status(500).json({
+        jsonrpc: "2.0",
+        error: { code: -32603, message: "Internal server error" },
+        id: null,
+      });
+    }
+  }
+});
+
+// Senza sessioni non c'e' niente da riprendere ne' da cancellare: si risponde
+// 405 invece di lasciare che il client resti appeso su una GET che non arrivera'.
+const noSession = (_req: Request, res: Response) => {
+  res.status(405).json({
+    jsonrpc: "2.0",
+    error: { code: -32000, message: "Method not allowed: server is stateless" },
+    id: null,
+  });
+};
+app.get("/mcp", noSession);
+app.delete("/mcp", noSession);
+
+const httpServer = app.listen(PORT, HOST, () => {
+  console.log(`[${PACKAGE_NAME} ${VERSION}] in ascolto su http://${HOST}:${PORT}/mcp`);
+});
+
+// systemd manda SIGTERM: si chiude pulito, senza troncare una risposta in corso.
+for (const signal of ["SIGTERM", "SIGINT"] as const) {
+  process.on(signal, () => {
+    console.log(`[${PACKAGE_NAME}] ${signal} ricevuto, chiusura`);
+    httpServer.close(() => process.exit(0));
+    setTimeout(() => process.exit(1), 10_000).unref();
+  });
+}
