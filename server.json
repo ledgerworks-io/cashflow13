@@ -1,0 +1,19 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "it.chiriba/cashflow13",
+  "title": "13-Week Cash Flow Plan",
+  "description": "13-week cash flow plan with a live Excel workbook, not just an answer in chat.",
+  "version": "0.1.0",
+  "websiteUrl": "https://mcp.chiriba.it",
+  "repository": {
+    "url": "https://github.com/ledgerworks-io/cashflow13",
+    "source": "github",
+    "id": "1324025510"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.chiriba.it/mcp"
+    }
+  ]
+}
