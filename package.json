@@ -1,6 +1,6 @@
 {
   "name": "@ledgerworks/cashflow13",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "description": "13-week cash flow plan — MCP server (skeleton)",
   "license": "BUSL-1.1",
