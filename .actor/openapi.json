@@ -4,9 +4,16 @@
     "title": "13-Week Cash Flow Forecast",
     "description": "An MCP server in Apify Standby mode. Point an MCP client at /mcp, or call the endpoints directly.",
     "version": "0.1.0",
-    "license": { "name": "BUSL-1.1", "url": "https://github.com/ledgerworks-io/cashflow13/blob/main/LICENSE" }
+    "license": {
+      "name": "BUSL-1.1",
+      "url": "https://github.com/ledgerworks-io/cashflow13/blob/main/LICENSE"
+    }
   },
-  "servers": [{ "url": "https://ledgerworks--cashflow13.apify.actor" }],
+  "servers": [
+    {
+      "url": "https://ledgerworks--cashflow13.apify.actor"
+    }
+  ],
   "paths": {
     "/mcp": {
       "post": {
@@ -18,16 +25,36 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["jsonrpc", "method"],
+                "required": [
+                  "jsonrpc",
+                  "method"
+                ],
                 "properties": {
-                  "jsonrpc": { "type": "string", "enum": ["2.0"] },
-                  "id": { "type": ["integer", "string"] },
+                  "jsonrpc": {
+                    "type": "string",
+                    "enum": [
+                      "2.0"
+                    ]
+                  },
+                  "id": {
+                    "oneOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ],
+                    "description": "JSON-RPC request id."
+                  },
                   "method": {
                     "type": "string",
                     "example": "tools/call",
                     "description": "initialize, tools/list or tools/call"
                   },
-                  "params": { "type": "object" }
+                  "params": {
+                    "type": "object"
+                  }
                 }
               }
             }
@@ -36,7 +63,13 @@
         "responses": {
           "200": {
             "description": "JSON-RPC result. For build_cashflow_plan, structuredContent carries the 13-week grid, the first negative week, the peak funding need, the levers, and a temporary link to the Excel workbook.",
-            "content": { "application/json": { "schema": { "type": "object" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         }
       }
@@ -50,7 +83,9 @@
             "name": "key",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Opaque key returned by build_cashflow_plan."
           }
         ],
@@ -59,11 +94,16 @@
             "description": "The workbook.",
             "content": {
               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
-                "schema": { "type": "string", "format": "binary" }
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
           },
-          "410": { "description": "The link has expired." }
+          "410": {
+            "description": "The link has expired."
+          }
         }
       }
     },
@@ -78,12 +118,28 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "status": { "type": "string" },
-                    "service": { "type": "string" },
-                    "version": { "type": "string" },
-                    "store": { "type": "string", "enum": ["memory", "apify-kv"] },
-                    "bootId": { "type": "string" },
-                    "uptimeSec": { "type": "integer" }
+                    "status": {
+                      "type": "string"
+                    },
+                    "service": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "string"
+                    },
+                    "store": {
+                      "type": "string",
+                      "enum": [
+                        "memory",
+                        "apify-kv"
+                      ]
+                    },
+                    "bootId": {
+                      "type": "string"
+                    },
+                    "uptimeSec": {
+                      "type": "integer"
+                    }
                   }
                 }
               }
