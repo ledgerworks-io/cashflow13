@@ -35,6 +35,7 @@ interface Meta {
 const NOME_ARCHIVIO = "cashflow13-downloads";
 
 export class ApifyKeyValueStore implements BlobStore {
+  readonly kind = "apify-kv";
   readonly #token: string;
   #storeId: string | null = null;
 
@@ -45,9 +46,11 @@ export class ApifyKeyValueStore implements BlobStore {
 
   /** Presente solo quando giriamo dentro un'esecuzione Apify. */
   static fromEnvironment(): ApifyKeyValueStore | null {
+    // Discriminante: APIFY_TOKEN esiste solo dentro un'esecuzione Apify. Le
+    // variabili APIFY_IS_AT_HOME / ACTOR_RUN_ID non sono garantite in Standby,
+    // e affidarcisi faceva ricadere tutto in memoria senza dirlo a nessuno.
     const token = process.env.APIFY_TOKEN;
-    const suApify = process.env.APIFY_IS_AT_HOME === "1" || process.env.ACTOR_RUN_ID;
-    if (!token || !suApify) return null;
+    if (!token) return null;
     return new ApifyKeyValueStore(token);
   }
 

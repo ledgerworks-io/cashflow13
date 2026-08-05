@@ -43,6 +43,7 @@ interface Voce {
 export const TTL_PREDEFINITO_MS = 60 * 60 * 1000; // 60 minuti
 
 export class DownloadStore implements BlobStore {
+  readonly kind = "memory";
   readonly #ttlMs: number;
   readonly #maxEntries: number;
   readonly #maxTotalBytes: number;

@@ -21,6 +21,8 @@ export interface StoredBlob {
 }
 
 export interface BlobStore {
+  /** Come si chiama questo magazzino, per la diagnostica. */
+  readonly kind: string;
   put(data: Buffer, filename: string): Promise<{ key: string; expiresAt: number }>;
   get(key: string): Promise<StoredBlob | null>;
   /** Cancella dopo la consegna: il file ha finito il suo lavoro. */

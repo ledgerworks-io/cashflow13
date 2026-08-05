@@ -73,7 +73,14 @@ app.get("/download/:chiave", async (req: Request, res: Response) => {
 
 // Sonda per systemd e per un controllo a occhio. Non fa parte del protocollo MCP.
 app.get("/healthz", (_req: Request, res: Response) => {
-  res.json({ status: "ok", service: PACKAGE_NAME, version: VERSION });
+  res.json({
+    status: "ok",
+    service: PACKAGE_NAME,
+    version: VERSION,
+    // Quale magazzino e' attivo: su Apify DEVE essere "apify-kv", altrimenti i
+    // link muoiono al riciclo del contenitore senza che nessuno se ne accorga.
+    store: deposito.kind,
+  });
 });
 
 /**
