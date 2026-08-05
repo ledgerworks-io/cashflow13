@@ -63,9 +63,12 @@ app.get("/download/:chiave", async (req: Request, res: Response) => {
   // condivisa, ne' sul proxy ne' sull'edge.
   res.setHeader("Cache-Control", "no-store, private");
   res.end(voce.data);
-  // Consegnato: il file ha finito il suo lavoro. Su Apify questo toglie i byte
-  // dal disco della piattaforma senza aspettare la scadenza.
-  void deposito.drop(id);
+  // NON si cancella dopo la consegna, per quanto sia allettante toglierlo dal
+  // disco di Apify un'ora prima. Un link monouso lo brucia il primo che lo
+  // tocca — il prefetch del browser, un antivirus aziendale che ispeziona i
+  // collegamenti — e l'utente trova un errore senza aver scaricato niente.
+  // L'esposizione la limita il TTL, che è un secondo dopo l'altro sotto
+  // controllo; la consegna che fallisce no.
 });
 
 // Sonda per systemd e per un controllo a occhio. Non fa parte del protocollo MCP.
