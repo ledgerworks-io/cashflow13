@@ -1,0 +1,96 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "13-Week Cash Flow Forecast",
+    "description": "An MCP server in Apify Standby mode. Point an MCP client at /mcp, or call the endpoints directly.",
+    "version": "0.1.0",
+    "license": { "name": "BUSL-1.1", "url": "https://github.com/ledgerworks-io/cashflow13/blob/main/LICENSE" }
+  },
+  "servers": [{ "url": "https://ledgerworks--cashflow13.apify.actor" }],
+  "paths": {
+    "/mcp": {
+      "post": {
+        "summary": "Model Context Protocol endpoint",
+        "description": "Streamable HTTP transport, stateless. Send JSON-RPC 2.0: initialize, tools/list, tools/call. The tool build_cashflow_plan takes the opening cash balance plus expected receipts and supplier payments (or revenue and DSO, purchases and DPO), and optionally payroll, loan instalments and taxes.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["jsonrpc", "method"],
+                "properties": {
+                  "jsonrpc": { "type": "string", "enum": ["2.0"] },
+                  "id": { "type": ["integer", "string"] },
+                  "method": {
+                    "type": "string",
+                    "example": "tools/call",
+                    "description": "initialize, tools/list or tools/call"
+                  },
+                  "params": { "type": "object" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "JSON-RPC result. For build_cashflow_plan, structuredContent carries the 13-week grid, the first negative week, the peak funding need, the levers, and a temporary link to the Excel workbook.",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          }
+        }
+      }
+    },
+    "/download/{key}": {
+      "get": {
+        "summary": "Collect the Excel workbook",
+        "description": "One temporary link per plan, valid 20 minutes, then deleted whether collected or not. Downloadable more than once inside the window.",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Opaque key returned by build_cashflow_plan."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The workbook.",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": { "type": "string", "format": "binary" }
+              }
+            }
+          },
+          "410": { "description": "The link has expired." }
+        }
+      }
+    },
+    "/healthz": {
+      "get": {
+        "summary": "Health and build identity",
+        "responses": {
+          "200": {
+            "description": "Status, version, which blob store is active, and the identity of the running process.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string" },
+                    "service": { "type": "string" },
+                    "version": { "type": "string" },
+                    "store": { "type": "string", "enum": ["memory", "apify-kv"] },
+                    "bootId": { "type": "string" },
+                    "uptimeSec": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

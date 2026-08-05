@@ -10,29 +10,6 @@
     "licence": "BUSL-1.1"
   },
   "webServerMcpPath": "/mcp",
-  "storages": {
-    "dataset": {
-      "actorSpecification": 1,
-      "title": "13-week cash flow plans",
-      "views": {
-        "overview": {
-          "title": "Overview",
-          "transformation": {
-            "fields": [
-              "firstNegativeWeek",
-              "firstNegativeWeekEnding",
-              "shortfallAtFirstNegative",
-              "peakFundingNeed",
-              "lowestClosingBalance",
-              "currency"
-            ]
-          },
-          "display": {
-            "component": "table"
-          }
-        }
-      }
-    }
-  },
-  "input": "./input_schema.json"
+  "input": "./input_schema.json",
+  "webServerSchema": "./openapi.json"
 }
