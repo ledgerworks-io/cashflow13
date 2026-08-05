@@ -22,7 +22,8 @@
       "title": "Supplier payments, per week",
       "type": "integer",
       "prefill": 19000,
-      "editor": "number"
+      "editor": "number",
+      "description": "Cash out to suppliers each week."
     },
     "payroll": {
       "title": "Payroll, per week",
