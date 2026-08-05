@@ -9,6 +9,18 @@ break-even detection and the working-capital conversion are written and tested.
 The six inputs are not yet wired to the tool — the workbook it hands back today
 uses placeholder figures, with real formulas in real cells.
 
+## Install
+
+Listed in the official MCP registry as **`it.chiriba/cashflow13`**.
+
+**Claude Desktop** — Settings → Connectors → Add custom connector, URL below.
+
+**Claude Code**
+
+```bash
+claude mcp add --transport http cashflow13 https://mcp.chiriba.it/mcp
+```
+
 ## Endpoint
 
 ```
