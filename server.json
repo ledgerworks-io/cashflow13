@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "it.chiriba/cashflow13",
   "title": "13-Week Cash Flow Plan",
-  "description": "13-week cash flow plan with a live Excel workbook, not just an answer in chat.",
+  "description": "13-week cash flow forecast: the week you run out of cash, plus a live Excel model.",
   "version": "0.1.0",
   "websiteUrl": "https://mcp.chiriba.it",
   "repository": {

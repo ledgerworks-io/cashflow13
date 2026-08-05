@@ -41,9 +41,27 @@ export const STRINGS = {
   },
 
   // --- Consegna della cartella Excel -------------------------------------
+  // Questa e' la frase che un modello legge per decidere se chiamare lo
+  // strumento. Vale piu' di qualunque scheda di catalogo: deve dire cosa fa,
+  // con che dati, e QUANDO usarlo — nel vocabolario di chi ha il problema.
   "tool.workbook.description": {
-    en: "Build the 13-week cash flow workbook and return a temporary download link.",
-    it: "Costruisce la cartella Excel del piano a 13 settimane e restituisce un link temporaneo per scaricarla.",
+    en:
+      "Build a 13-week cash flow forecast and return a live Excel workbook. " +
+      "Use this when someone asks when they will run out of cash, how long their " +
+      "runway is, how much funding they need to bridge a gap, or wants a short-term " +
+      "liquidity or treasury forecast. Takes opening cash balance, expected receipts " +
+      "(or revenue and DSO), supplier payments (or purchases and DPO), payroll, loan " +
+      "instalments and taxes due. Returns the week-by-week grid, the first week cash " +
+      "goes negative, the peak funding need, and levers such as collecting earlier or " +
+      "paying later.",
+    it:
+      "Costruisce un piano di cassa a 13 settimane e restituisce una cartella Excel viva. " +
+      "Da usare quando qualcuno chiede quando finiranno i soldi, quanta autonomia di cassa " +
+      "ha, di quanto fabbisogno ha bisogno per coprire un buco, o vuole una previsione di " +
+      "liquidità a breve. Prende saldo iniziale, incassi attesi (o fatturato e DSO), " +
+      "pagamenti fornitori (o acquisti e DPO), stipendi, rate e imposte in scadenza. " +
+      "Restituisce la griglia settimanale, la settimana in cui la cassa va sotto zero, " +
+      "il fabbisogno massimo e le leve.",
   },
   "tool.workbook.ready": {
     en: "Your workbook is ready. The link below is temporary — download it now and save it.",
