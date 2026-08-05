@@ -1,93 +1,143 @@
-# cashflow13
+# 13-Week Cash Flow Forecast
 
-MCP server for a **13-week cash flow plan**. Six inputs in, a survival calendar out —
-including the one number people open the tool for: **the week cash goes negative, and by
-how much.**
+Answers the question people actually open a cash flow tool to ask:
+**which week does the cash go negative, and by how much?**
 
-Status: **under construction.** Live and serving. The calendar, the grid, the
-break-even detection and the working-capital conversion are written and tested.
-The six inputs are not yet wired to the tool — the workbook it hands back today
-uses placeholder figures, with real formulas in real cells.
+Six figures in — opening cash balance, expected receipts, supplier payments,
+payroll, loan instalments, and VAT or taxes due. Out comes the 13-week grid,
+the break-even week, the peak funding need across the period, the levers that
+would move the date, and a **live Excel workbook** with real formulas you can
+keep working in.
 
-## Install
+Don't know your receipts? Give revenue and DSO instead and it converts. Same
+for purchases and DPO on the payables side. One number per line if your weeks
+are flat, thirteen if you have the detail.
 
-Listed in the official MCP registry as **`it.chiriba/cashflow13`**.
+---
 
-**Claude Desktop** — Settings → Connectors → Add custom connector, URL below.
+## Three ways to use it
 
-**Claude Code**
+### 1. Desktop extension — nothing leaves your machine
 
-```bash
-claude mcp add --transport http cashflow13 https://mcp.chiriba.it/mcp
-```
+The best version, and the one to pick if the figures are a client's.
+The server runs locally and writes the workbook straight to your disk. No
+account, no token, no upload.
 
-## Endpoint
+Download **`cashflow13-*.mcpb`** from
+[Releases](https://github.com/ledgerworks-io/cashflow13/releases),
+then in Claude Desktop: Settings → Extensions → drag the file in.
+
+### 2. Remote server — the shortest path
+
+No account and no token. In Claude Desktop, Settings → Connectors → Add custom
+connector:
 
 ```
 https://mcp.chiriba.it/mcp
 ```
 
-Streamable HTTP, stateless. Nothing is stored — the server computes and returns.
+In Claude Code:
 
 ```bash
-curl -X POST https://mcp.chiriba.it/mcp \
-  -H 'Content-Type: application/json' \
-  -H 'Accept: application/json, text/event-stream' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call",
-       "params":{"name":"health","arguments":{"locale":"en"}}}'
+claude mcp add --transport http cashflow13 https://mcp.chiriba.it/mcp
 ```
+
+Listed in the official MCP registry as **`it.chiriba/cashflow13`**.
+
+### 3. Apify Actor
+
+Apify Standby requires **your own Apify API token** — that is the platform's
+rule, not ours. Append it to the URL:
+
+```
+https://ledgerworks--cashflow13.apify.actor/mcp?token=YOUR_APIFY_TOKEN
+```
+
+If you would rather not have an account at all, use one of the two above.
+
+---
+
+## What it gives back
+
+- the week-by-week grid with the closing cash balance
+- **the first week the balance turns negative**, and the shortfall in that week
+- the **peak funding need** over the 13 weeks — the cumulative low point, which
+  is a different number from the first shortfall, and the one your bank will ask for
+- levers, each with the weeks it buys and the change in funding need:
+  collecting 15 days earlier, paying suppliers 15 days later, moving payroll a week
+
+The levers never make an outflow disappear. Moving payroll a week pushes the
+last payment past week 13, and the answer says so — deferred, not saved.
+
+## The workbook
+
+Yellow cells are inputs. Everything else is a formula. Change a weekly figure
+and the grid, the break-even week and the funding need all move; change the
+start date in one cell and all thirteen weeks follow. It recalculates on open,
+because no cached values are written — it is the model, not a picture of one.
+
+Weeks end on **Friday** by default: US practice, and where payroll and bank
+cut-offs fall. Configurable, and written into the workbook header so whoever
+receives the file knows what convention they are reading.
+
+## Your figures
+
+No database, no history, no account, nothing kept.
+
+- **Desktop extension** — the numbers never leave your computer.
+- **Remote server** — the workbook is held in memory for 60 minutes, never
+  written to disk, then forgotten.
+- **Apify** — the workbook sits on Apify's storage for at most 20 minutes,
+  then is deleted whether it was downloaded or not.
+
+---
 
 ## Development
 
 ```bash
 npm install
-npm test          # vitest — tests are written before the code
+npm test          # tests are written before the code
 npm run typecheck
 npm run build
-npm start
+npm run bundle    # builds the .mcpb desktop extension
+npm run release   # full release chain; stops before anything leaves the machine
 ```
-
-## Layout
 
 | Path | What lives there |
 |---|---|
-| `src/index.ts` | HTTP host: Express, `/mcp`, `/download/:key`, `/healthz` |
-| `src/server.ts` | MCP instance and tool registration |
-| `src/engine/calendar.ts` | The 13 week-ending dates. Weeks end on **Friday** by default. |
+| `src/engine/calendar.ts` | The 13 week-ending dates, all in UTC |
 | `src/engine/plan.ts` | The grid, the first negative week, the peak funding need |
-| `src/engine/working-capital.ts` | Revenue + DSO → weekly receipts (and purchases + DPO) |
-| `src/excel/workbook.ts` | The live workbook: input cells on top, real formulas below |
-| `src/delivery/store.ts` | Temporary download links, and **why** they exist |
+| `src/engine/levers.ts` | What would move the date |
+| `src/engine/working-capital.ts` | Revenue + DSO → weekly receipts |
+| `src/excel/workbook.ts` | The live workbook |
+| `src/delivery/` | How the file reaches you, and **why** each way exists |
 | `src/i18n/strings.ts` | **The localization table.** Every user-facing label. |
-| `test/` | Protocol-level and engine tests |
 
 ### Rules that shaped this
 
-- **No user-facing string is hardcoded.** It goes in `src/i18n/strings.ts`, in English
-  and Italian, from the first commit. A test fails if a key is missing a language — or
-  if an Italian string is a copy-paste of the English one.
+- **No user-facing string is hardcoded** — it goes in the localization table, in
+  English and Italian. A test fails if a key is missing a language, or if an
+  Italian string is a copy-paste of the English.
 - **Tests before code.** For a financial tool, correctness *is* the product.
-- **No storage.** No database, no session state, no history. That is also the GDPR answer.
-- **One engine, many tools.** The next tools (PDF → Excel, business plan, XBRL) are new
-  functions on this server, not new projects.
-
-## Deployment
-
-- systemd unit `cashflow13.service`, running as the unprivileged `cashflow13` user
-- listens on `127.0.0.1:8770` only; Caddy terminates TLS and routes by path
-- the service cannot write to its own code (files are root-owned, `ProtectSystem=strict`)
+  A balance of exactly zero is not negative. Money rounds to the cent at every
+  step, because `0.1 + 0.2` does not make `0.3` and a plan that says "you are
+  overdrawn" when you are not is worse than no plan.
+- **No storage.** That is also the GDPR answer.
+- **One engine, many tools.** The next tools are new functions on this server,
+  not new projects.
 
 ## Licence
 
 [Business Source License 1.1](LICENSE). In plain terms:
 
-- **Use it for anything**, including in your own professional work — an accountant
+- **Use it for anything**, including your own professional work — an accountant
   or controller running this for a client, and billing that client, is fine.
-- **You may not hand it to third parties for a fee so they can use it themselves** —
-  not as a product, not as a hosted service, not embedded in other software.
+- **You may not hand it to third parties for a fee so they can use it
+  themselves** — not as a product, not as a hosted service, not embedded in
+  other software.
 - Four years after each version is published, that version becomes
   **Apache 2.0** and the restriction lapses.
 
-BUSL-1.1 is not an OSI-approved licence. That is deliberate: the tool is free to
-use, and stays free to use, but the option to charge for it later is kept open.
+Not OSI-approved, deliberately: the tool is free to use and stays free to use,
+but the option to charge for it later is kept open.
 For other arrangements: `info@chiriba.com`.
