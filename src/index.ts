@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import express, { type Request, type Response } from "express";
 
@@ -15,6 +17,17 @@ const PORT = Number(process.env.ACTOR_WEB_SERVER_PORT ?? process.env.PORT ?? 877
 // In un contenitore invece bisogna esporsi, o la piattaforma non ci arriva.
 const IN_CONTENITORE = process.env.ACTOR_WEB_SERVER_PORT !== undefined;
 const HOST = process.env.HOST ?? (IN_CONTENITORE ? "0.0.0.0" : "127.0.0.1");
+
+/**
+ * Identita' di questo processo, per la diagnostica.
+ *
+ * Serve a distinguere un contenitore riavviato da uno ancora caldo. Il
+ * 2026-08-05 tre misure su Apify sono risultate invalide perche' non c'era modo
+ * di sapere quale processo stesse rispondendo: uno diceva di aver applicato una
+ * correzione che invece non era ancora in funzione.
+ */
+const BOOT_ID = randomBytes(6).toString("hex");
+const BOOT_AT = new Date().toISOString();
 
 const app = express();
 
@@ -80,6 +93,9 @@ app.get("/healthz", (_req: Request, res: Response) => {
     // Quale magazzino e' attivo: su Apify DEVE essere "apify-kv", altrimenti i
     // link muoiono al riciclo del contenitore senza che nessuno se ne accorga.
     store: deposito.kind,
+    bootId: BOOT_ID,
+    bootAt: BOOT_AT,
+    uptimeSec: Math.round(process.uptime()),
   });
 });
 

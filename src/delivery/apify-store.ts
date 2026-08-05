@@ -18,8 +18,15 @@ import { XLSX_MIME } from "../excel/workbook.js";
 
 const API = "https://api.apify.com/v2";
 
-/** Il TTL non lo impone l'archivio: lo controlliamo noi al ritiro. */
-const TTL_MS = 60 * 60 * 1000;
+/**
+ * TTL piu' corto che sul nostro server (60 min).
+ *
+ * Li' il file sta in memoria e non tocca nessun disco; qui sta sul disco di un
+ * terzo, in un'altra giurisdizione. La finestra e' il solo parametro che
+ * controlliamo davvero, e 20 minuti bastano a chi clicca il link che ha appena
+ * ricevuto — che e' quello che succede in pratica.
+ */
+const TTL_MS = 20 * 60 * 1000;
 
 interface Meta {
   filename: string;
@@ -73,7 +80,42 @@ export class ApifyKeyValueStore implements BlobStore {
     return `${API}/key-value-stores/${await this.#id()}/records/${encodeURIComponent(key)}`;
   }
 
+  /**
+   * Cancella i record scaduti.
+   *
+   * Serve perche' l'archivio con nome e' PERSISTENTE: il TTL lo verifichiamo al
+   * ritiro, ma un link che nessuno apre non passa mai di li' e resterebbe sul
+   * disco della piattaforma per sempre. E' il caso opposto a quello coperto
+   * dalla scadenza, e va chiuso a mano.
+   */
+  async #spazzata(): Promise<void> {
+    try {
+      const r = await fetch(`${API}/key-value-stores/${await this.#id()}/keys?limit=1000`, {
+        headers: { Authorization: `Bearer ${this.#token}` },
+      });
+      if (!r.ok) return;
+      const { data } = (await r.json()) as { data: { items: Array<{ key: string }> } };
+      const ora = Date.now();
+
+      for (const { key } of data.items) {
+        if (!key.endsWith(".meta")) continue;
+        const m = await fetch(await this.#url(key), {
+          headers: { Authorization: `Bearer ${this.#token}` },
+        });
+        if (!m.ok) continue;
+        const { expiresAt } = (await m.json()) as Meta;
+        if (expiresAt <= ora) await this.drop(key.slice(0, -".meta".length));
+      }
+    } catch {
+      // La pulizia non deve mai far fallire la generazione di un piano.
+    }
+  }
+
   async put(data: Buffer, filename: string): Promise<{ key: string; expiresAt: number }> {
+    // Si passa la scopa a ogni deposito: il volume e' basso e cosi' non serve
+    // ne' un processo a parte ne' un timer che nessuno sorveglia.
+    void this.#spazzata();
+
     const key = randomBytes(24).toString("base64url");
     const expiresAt = Date.now() + TTL_MS;
 
