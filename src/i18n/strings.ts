@@ -50,8 +50,8 @@ export const STRINGS = {
     it: "La cartella è pronta. Il link qui sotto è temporaneo: scaricala adesso e salvala.",
   },
   "tool.workbook.hint": {
-    en: "Open it in Excel: the yellow cells at the top drive every formula below.",
-    it: "Aprila in Excel: le celle gialle in testa pilotano tutte le formule sottostanti.",
+    en: "Open it in Excel: every yellow cell is editable, and the whole plan recalculates as you change them.",
+    it: "Aprila in Excel: ogni cella gialla è modificabile, e il piano si ricalcola man mano che le cambi.",
   },
 
   // --- Errori ------------------------------------------------------------
