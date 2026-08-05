@@ -1,0 +1,63 @@
+{
+  "title": "13-Week Cash Flow Plan",
+  "type": "object",
+  "schemaVersion": 1,
+  "description": "This Actor runs as an MCP server. Connect your AI client to its Standby endpoint and ask for a cash flow plan — the fields below are only used if you run it directly.",
+  "properties": {
+    "openingBalance": {
+      "title": "Opening cash balance",
+      "type": "integer",
+      "description": "Cash in the bank on day one.",
+      "prefill": 45000,
+      "editor": "number"
+    },
+    "receipts": {
+      "title": "Expected receipts, per week",
+      "type": "integer",
+      "description": "Cash expected in from customers each week.",
+      "prefill": 28000,
+      "editor": "number"
+    },
+    "supplierPayments": {
+      "title": "Supplier payments, per week",
+      "type": "integer",
+      "prefill": 19000,
+      "editor": "number"
+    },
+    "payroll": {
+      "title": "Payroll, per week",
+      "type": "integer",
+      "description": "Wages and salaries. Leave empty for zero.",
+      "prefill": 14500,
+      "editor": "number"
+    },
+    "loanRepayments": {
+      "title": "Loan instalments, per week",
+      "type": "integer",
+      "description": "Loan and lease repayments. Leave empty for zero.",
+      "prefill": 3200,
+      "editor": "number"
+    },
+    "taxes": {
+      "title": "VAT and taxes, per week",
+      "type": "integer",
+      "description": "Tax falling due. Leave empty for zero.",
+      "prefill": 4100,
+      "editor": "number"
+    },
+    "startDate": {
+      "title": "Start date",
+      "type": "string",
+      "description": "First day of the plan, YYYY-MM-DD. Defaults to today.",
+      "editor": "textfield"
+    },
+    "currency": {
+      "title": "Currency label",
+      "type": "string",
+      "description": "Shown in the workbook header. Label only — nothing is converted.",
+      "default": "EUR",
+      "editor": "textfield"
+    }
+  },
+  "required": []
+}
