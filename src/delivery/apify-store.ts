@@ -26,32 +26,55 @@ interface Meta {
   expiresAt: number;
 }
 
-export class ApifyKeyValueStore implements BlobStore {
-  readonly #storeId: string;
-  readonly #token: string;
+/**
+ * NOME dell'archivio. Deve essere un archivio CON NOME, non quello predefinito
+ * dell'esecuzione: quello e' nuovo e vuoto a ogni riavvio del contenitore, ed e'
+ * quindi effimero quanto la memoria. Verificato il 2026-08-05 con una prova che
+ * ha restituito 410 dopo il riciclo.
+ */
+const NOME_ARCHIVIO = "cashflow13-downloads";
 
-  constructor(storeId: string, token: string) {
-    this.#storeId = storeId;
+export class ApifyKeyValueStore implements BlobStore {
+  readonly #token: string;
+  #storeId: string | null = null;
+
+  constructor(token: string, storeId?: string) {
     this.#token = token;
+    this.#storeId = storeId ?? null;
   }
 
   /** Presente solo quando giriamo dentro un'esecuzione Apify. */
   static fromEnvironment(): ApifyKeyValueStore | null {
-    const storeId = process.env.APIFY_DEFAULT_KEY_VALUE_STORE_ID;
     const token = process.env.APIFY_TOKEN;
-    if (!storeId || !token) return null;
-    return new ApifyKeyValueStore(storeId, token);
+    const suApify = process.env.APIFY_IS_AT_HOME === "1" || process.env.ACTOR_RUN_ID;
+    if (!token || !suApify) return null;
+    return new ApifyKeyValueStore(token);
   }
 
-  #url(key: string): string {
-    return `${API}/key-value-stores/${this.#storeId}/records/${encodeURIComponent(key)}`;
+  /** Apre l'archivio con quel nome, creandolo la prima volta. */
+  async #id(): Promise<string> {
+    if (this.#storeId) return this.#storeId;
+    const r = await fetch(
+      `${API}/key-value-stores?name=${encodeURIComponent(NOME_ARCHIVIO)}`,
+      { method: "POST", headers: { Authorization: `Bearer ${this.#token}` } },
+    );
+    if (!r.ok) {
+      throw new Error(`archivio Apify: apertura fallita ${r.status} ${await r.text()}`);
+    }
+    const { data } = (await r.json()) as { data: { id: string } };
+    this.#storeId = data.id;
+    return data.id;
+  }
+
+  async #url(key: string): Promise<string> {
+    return `${API}/key-value-stores/${await this.#id()}/records/${encodeURIComponent(key)}`;
   }
 
   async put(data: Buffer, filename: string): Promise<{ key: string; expiresAt: number }> {
     const key = randomBytes(24).toString("base64url");
     const expiresAt = Date.now() + TTL_MS;
 
-    const risposta = await fetch(this.#url(key), {
+    const risposta = await fetch(await this.#url(key), {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${this.#token}`,
@@ -67,7 +90,7 @@ export class ApifyKeyValueStore implements BlobStore {
 
     // I metadati in un record a parte: l'archivio conserva il corpo, non il
     // nome del file ne' la scadenza.
-    await fetch(this.#url(`${key}.meta`), {
+    await fetch(await this.#url(`${key}.meta`), {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${this.#token}`,
@@ -80,7 +103,7 @@ export class ApifyKeyValueStore implements BlobStore {
   }
 
   async get(key: string): Promise<StoredBlob | null> {
-    const meta = await fetch(this.#url(`${key}.meta`), {
+    const meta = await fetch(await this.#url(`${key}.meta`), {
       headers: { Authorization: `Bearer ${this.#token}` },
     });
     if (!meta.ok) return null;
@@ -90,7 +113,7 @@ export class ApifyKeyValueStore implements BlobStore {
       return null;
     }
 
-    const corpo = await fetch(this.#url(key), {
+    const corpo = await fetch(await this.#url(key), {
       headers: { Authorization: `Bearer ${this.#token}` },
     });
     if (!corpo.ok) return null;
@@ -101,8 +124,8 @@ export class ApifyKeyValueStore implements BlobStore {
   async drop(key: string): Promise<void> {
     const intestazioni = { Authorization: `Bearer ${this.#token}` };
     await Promise.allSettled([
-      fetch(this.#url(key), { method: "DELETE", headers: intestazioni }),
-      fetch(this.#url(`${key}.meta`), { method: "DELETE", headers: intestazioni }),
+      fetch(await this.#url(key), { method: "DELETE", headers: intestazioni }),
+      fetch(await this.#url(`${key}.meta`), { method: "DELETE", headers: intestazioni }),
     ]);
   }
 }
