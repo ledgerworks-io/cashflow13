@@ -6,3 +6,10 @@ coverage/
 .env.*
 .DS_Store
 build/
+
+# Bozza dell'accordo sul trattamento dei dati.
+# Fuori dal repo per decisione del 6 agosto 2026: contiene nome e indirizzo di
+# casa di una persona fisica, e questo repo e' PUBBLICO. Una volta committata
+# resterebbe nella cronologia per sempre, anche cancellandola dopo.
+# Vive solo su /srv/mcp. Se serve altrove, va copiata a mano.
+legal/

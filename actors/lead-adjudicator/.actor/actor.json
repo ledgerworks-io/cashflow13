@@ -1,0 +1,16 @@
+{
+  "actorSpecification": 1,
+  "name": "lead-adjudicator",
+  "title": "Lead Adjudicator — pay only for what we can prove",
+  "description": "A verdict for every record against the criteria you declared: filter respected, field present, duplicate, email reachable. You are not charged for records we cannot adjudicate.",
+  "version": "0.1",
+  "buildTag": "latest",
+  "dockerfile": "./Dockerfile",
+  "_nota": "dockerContextDir è relativo a questa cartella .actor: tre livelli su = radice del repo. Senza, il contesto sarebbe actors/lead-adjudicator e l'immagine non vedrebbe src/.",
+  "dockerContextDir": "../../..",
+  "input": "./input_schema.json",
+  "readme": "../README.md",
+  "meta": {
+    "licence": "BUSL-1.1"
+  }
+}

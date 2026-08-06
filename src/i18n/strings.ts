@@ -190,6 +190,82 @@ export const STRINGS = {
     en: "This tool reads only the dataset you point it at. It has no access to your account.",
     it: "Questo strumento legge solo il dataset che gli indichi. Non ha accesso al tuo account.",
   },
+
+  // --- Aggiudicatore: verdetto per record --------------------------------
+  // Il motore emette codici, mai frasi. Le frasi stanno qui, dal primo commit.
+  "verdict.good": { en: "Usable", it: "Utilizzabile" },
+  "verdict.rejected": { en: "Rejected", it: "Scartato" },
+  "verdict.duplicate": { en: "Duplicate", it: "Doppione" },
+  "verdict.undecidable": { en: "Not adjudicated", it: "Non aggiudicato" },
+
+  "reason.duplicate": {
+    en: "Already delivered earlier in the same file.",
+    it: "Già consegnato prima nello stesso file.",
+  },
+  "reason.empty": {
+    en: "The field you asked for arrived empty.",
+    it: "Il campo che avevi chiesto è arrivato vuoto.",
+  },
+  "reason.filter": {
+    en: "Does not meet a criterion you declared.",
+    it: "Non rispetta un criterio che avevi dichiarato.",
+  },
+  "reason.email": {
+    en: "The address cannot receive mail.",
+    it: "L'indirizzo non può ricevere posta.",
+  },
+
+  "warning.email": {
+    en: "Worth knowing, but it did not decide the verdict.",
+    it: "Vale la pena saperlo, ma non ha deciso il verdetto.",
+  },
+
+  // --- Aggiudicatore: la garanzia ----------------------------------------
+  "adjudicate.billable": { en: "Charged", it: "Addebitati" },
+  "adjudicate.not_billable": { en: "Not charged", it: "Non addebitati" },
+  "adjudicate.guarantee": {
+    en: "You are charged only for records we could adjudicate. What we cannot prove, you do not pay for.",
+    it: "Paghi solo i record che siamo riusciti ad aggiudicare. Quello che non sappiamo dimostrare non te lo addebitiamo.",
+  },
+  "adjudicate.undecidable_note": {
+    en: "Whether this mailbox exists cannot be verified, so this record is free.",
+    it: "Se questa casella esista non è verificabile: questo record è gratuito.",
+  },
+
+  // --- Aggiudicatore: la ricevuta ----------------------------------------
+  "adj.sheet.verdicts": { en: "Verdicts", it: "Verdetti" },
+  "adj.col.row": { en: "Row in your file", it: "Riga nel tuo file" },
+  "adj.col.verdict": { en: "Verdict", it: "Verdetto" },
+  "adj.col.billing": { en: "Billing", it: "Addebito" },
+  "adj.col.why": { en: "Why", it: "Perché" },
+  "adj.col.note": { en: "Worth knowing", it: "Da sapere" },
+  // Non "Yes"/"No": in italiano "No" è identico all'inglese, e un'etichetta
+  // che si spiega da sola sta meglio in una ricevuta.
+  "adj.charged.yes": { en: "Charged", it: "Addebitato" },
+  "adj.charged.no": { en: "Not charged", it: "Non addebitato" },
+  "adj.billing.header": {
+    en: "What this audit costs you",
+    it: "Quanto ti costa questa revisione",
+  },
+  "adj.billing.free": {
+    en: "Free allowance, every run",
+    it: "Quota gratuita, a ogni esecuzione",
+  },
+  "adj.billing.charged_count": { en: "Records charged", it: "Record addebitati" },
+  "adj.billing.price": {
+    en: "Price per adjudicated record",
+    it: "Prezzo per record aggiudicato",
+  },
+  "adj.billing.cap": {
+    en: "Cap: half of what you paid for the data",
+    it: "Tetto: metà di quanto hai speso per i dati",
+  },
+  "adj.billing.total": { en: "Total charged", it: "Totale addebitato" },
+  "adj.rejected": { en: "Records rejected", it: "Record scartati" },
+  "adj.undecidable": {
+    en: "Records we could not adjudicate",
+    it: "Record che non siamo riusciti ad aggiudicare",
+  },
 } as const satisfies Record<string, Translations>;
 
 export type StringKey = keyof typeof STRINGS;

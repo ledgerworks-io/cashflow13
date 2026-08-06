@@ -1,0 +1,61 @@
+{
+  "title": "Lead Adjudicator",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "datasetId": {
+      "title": "Dataset to adjudicate",
+      "type": "string",
+      "description": "The dataset you want checked, record by record. It is read only — this Actor never writes to it, and has no access to anything else in your account.",
+      "editor": "resourcePicker",
+      "resourceType": "dataset",
+      "resourcePermissions": [
+        "READ"
+      ]
+    },
+    "filters": {
+      "title": "What you asked for",
+      "type": "array",
+      "description": "The criteria you specified when you bought this data, so every record can be checked against them. Each entry: {\"field\":\"region\",\"op\":\"equals\",\"value\":\"Lombardia\"}. Operators: nonEmpty, equals, oneOf, min, max, after, before, matches. Dotted paths work: \"company.country\".",
+      "editor": "json",
+      "default": []
+    },
+    "dedupeKeys": {
+      "title": "Fields that identify one record",
+      "type": "array",
+      "description": "Two rows with the same values in these fields are the same record, and the second one is reported as a duplicate. Example: [\"email\"] or [\"name\",\"company\"]. Leave empty to compare whole rows.",
+      "editor": "stringList",
+      "default": []
+    },
+    "emailField": {
+      "title": "Field holding the email address (optional)",
+      "type": "string",
+      "description": "Turn on the email column by naming the field, e.g. \"email\". Dead domains, throwaway services, role addresses and typos are identified with certainty. Whether a specific mailbox exists cannot be verified — those records are reported as Not adjudicated and are NOT charged.",
+      "editor": "textfield"
+    },
+    "amountPaidUsd": {
+      "title": "Amount you paid for this data (USD)",
+      "type": "number",
+      "description": "What this dataset cost you, from your Apify console. Optional, but recommended: it produces your real cost per usable record, and it activates the cap — you are never charged more than half of what you declare here.",
+      "editor": "number"
+    },
+    "locale": {
+      "title": "Language of the Excel receipt",
+      "type": "string",
+      "description": "Language used for the labels in the generated workbook.",
+      "editor": "select",
+      "default": "en",
+      "enum": [
+        "en",
+        "it"
+      ],
+      "enumTitles": [
+        "English",
+        "Italiano"
+      ]
+    }
+  },
+  "required": [
+    "datasetId"
+  ]
+}
