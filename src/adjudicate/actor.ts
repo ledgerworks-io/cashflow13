@@ -22,7 +22,7 @@
  *    rispettare (vedi `billing.ts`): oltre il limite si lavora gratis e si paga
  *    il calcolo.
  */
-import { adjudicate, type EmailAdjudication } from "./verdict.js";
+import { adjudicate, verdictRow, type EmailAdjudication } from "./verdict.js";
 import { buildEmailLookup, nodeDnsResolver } from "./email.js";
 import {
   DEFAULT_POLICY,
@@ -262,13 +262,7 @@ export async function main(): Promise<void> {
   // risponde 413 e non scrive NIENTE. In un colpo solo, sopra i ~56.000
   // record, il cliente non riceveva nessun verdetto e veniva fatturato lo
   // stesso.
-  const verdetti = result.records.map((r) => ({
-    row: r.index + 1,
-    verdict: r.verdict,
-    charged: r.billable,
-    reasons: r.reasons,
-    warnings: r.warnings,
-  }));
+  const verdetti = result.records.map(verdictRow);
   const pezzi = chunkForDataset(verdetti);
   for (const [i, pezzo] of pezzi.entries()) {
     await consegna(

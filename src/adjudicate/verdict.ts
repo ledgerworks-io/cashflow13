@@ -78,6 +78,32 @@ export interface RecordVerdict {
   billable: boolean;
 }
 
+/**
+ * La riga che finisce nel dataset del cliente — **una funzione, non un letterale
+ * dentro l'attore.**
+ *
+ * Sta qui perché lo schema di uscita pubblicato (`.actor/dataset_schema.json`)
+ * dichiara questi campi, e il diario racconta come è già andata una volta: uno
+ * schema che dichiarava campi che l'Actor non scriveva mai, spunta verde e
+ * documento che mentiva. Con la forma in un solo posto c'è un test che confronta
+ * i campi dichiarati con quelli davvero prodotti, e cade se divergono.
+ */
+export function verdictRow(r: RecordVerdict): {
+  row: number;
+  verdict: Verdict;
+  charged: boolean;
+  reasons: Reason[];
+  warnings: Warning[];
+} {
+  return {
+    row: r.index + 1, // il file del cliente comincia da 1
+    verdict: r.verdict,
+    charged: r.billable,
+    reasons: r.reasons,
+    warnings: r.warnings,
+  };
+}
+
 export interface AdjudicateOptions {
   /** Campi che identificano una riga. Vuoto: si confronta la riga intera. */
   dedupeKeys?: string[] | undefined;

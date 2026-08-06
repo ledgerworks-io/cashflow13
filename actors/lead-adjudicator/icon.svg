@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Lead Adjudicator">
+  <title>Lead Adjudicator</title>
+
+  <!-- Stesso fondo blu lavagna della linea ledgerworks. -->
+  <rect width="512" height="512" rx="96" fill="#1F2A37"/>
+
+  <!-- La lista che il cliente ha comprato. -->
+  <rect x="96" y="92" width="320" height="328" rx="20" fill="#FFFFFF"/>
+
+  <!-- Riga 1: utilizzabile. Segno di spunta. -->
+  <rect x="188" y="140" width="180" height="18" rx="9" fill="#CBD5E1"/>
+  <path d="M132 149 l16 16 l28 -32" fill="none" stroke="#2FA36B"
+        stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Riga 2: scartata, dimostrata. Croce. -->
+  <rect x="188" y="210" width="148" height="18" rx="9" fill="#E2E8F0"/>
+  <path d="M134 201 l32 32 M166 201 l-32 32" fill="none" stroke="#EF6C4D"
+        stroke-width="16" stroke-linecap="round"/>
+
+  <!-- Riga 3: doppione, dimostrato. Croce. -->
+  <rect x="188" y="280" width="168" height="18" rx="9" fill="#E2E8F0"/>
+  <path d="M134 271 l32 32 M166 271 l-32 32" fill="none" stroke="#EF6C4D"
+        stroke-width="16" stroke-linecap="round"/>
+
+  <!-- Riga 4: NON aggiudicata. E' il differenziale: quella che non paghi.
+       Ambra, lo stesso colore che negli altri strumenti marca il numero
+       per cui apri lo strumento. -->
+  <rect x="188" y="350" width="120" height="18" rx="9" fill="#F1F5F9"/>
+  <circle cx="150" cy="359" r="28" fill="#F5B301"/>
+  <path d="M139 351 A11 11 0 1 1 150 363 L150 369" fill="none" stroke="#FFFFFF"
+        stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="150" cy="375" r="1" fill="none" stroke="#FFFFFF"
+          stroke-width="9" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,91 @@
+{
+  "actorSpecification": 1,
+  "fields": {
+    "title": "Verdict for one record",
+    "type": "object",
+    "required": ["row", "verdict", "charged", "reasons", "warnings"],
+    "additionalProperties": false,
+    "properties": {
+      "row": {
+        "type": "integer",
+        "minimum": 1,
+        "title": "Row",
+        "description": "Position of this record in the file you gave us, counting from 1 — so you can go straight back to it."
+      },
+      "verdict": {
+        "type": "string",
+        "enum": ["good", "rejected", "duplicate", "undecidable"],
+        "title": "Verdict",
+        "description": "good = matches every criterion you declared. rejected = a criterion you declared is provably not met. duplicate = same record as an earlier row. undecidable = we could not prove either way, and you are not charged for it."
+      },
+      "charged": {
+        "type": "boolean",
+        "title": "Charged",
+        "description": "Whether this record counted towards your bill. False for every undecidable record: we do not charge for what we cannot prove."
+      },
+      "reasons": {
+        "type": "array",
+        "title": "Why",
+        "description": "Empty when the verdict is good. Otherwise one entry per criterion this record failed.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": ["duplicate", "empty", "filter", "email"],
+              "description": "duplicate = already seen. empty = a field you required is missing. filter = a criterion you declared is not met. email = the address cannot receive mail."
+            },
+            "field": {
+              "type": "string",
+              "description": "The field this reason is about. Absent on duplicate."
+            },
+            "detail": {
+              "type": "string",
+              "description": "Present on email reasons: what was found, in words."
+            },
+            "firstSeenAt": {
+              "type": "integer",
+              "description": "Present on duplicate reasons: the zero-based index of the row this one duplicates."
+            },
+            "rule": {
+              "type": "object",
+              "description": "Present on filter reasons: the criterion you declared, echoed back exactly as you gave it."
+            }
+          }
+        }
+      },
+      "warnings": {
+        "type": "array",
+        "title": "Worth knowing",
+        "description": "Things worth knowing that did NOT decide the verdict — a role address such as info@ is a legitimate lead for many buyers, so we flag it instead of rejecting it for you.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "code": { "type": "string", "enum": ["email"] },
+            "field": { "type": "string" },
+            "detail": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "views": {
+    "verdicts": {
+      "title": "Verdicts",
+      "description": "One row per record you gave us, with the verdict, whether it was charged, and why.",
+      "transformation": {
+        "fields": ["row", "verdict", "charged", "reasons", "warnings"]
+      },
+      "display": {
+        "component": "table",
+        "properties": {
+          "row": { "label": "Row", "format": "number" },
+          "verdict": { "label": "Verdict", "format": "text" },
+          "charged": { "label": "Charged", "format": "boolean" },
+          "reasons": { "label": "Why", "format": "array" },
+          "warnings": { "label": "Worth knowing", "format": "array" }
+        }
+      }
+    }
+  }
+}

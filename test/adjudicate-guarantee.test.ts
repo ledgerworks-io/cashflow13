@@ -3,7 +3,14 @@ import { readFileSync } from "node:fs";
 import ExcelJS from "exceljs";
 import { describe, expect, it } from "vitest";
 
-import { adjudicate, type EmailAdjudication } from "../src/adjudicate/verdict.js";
+import {
+  REASON_CODES,
+  VERDICTS,
+  WARNING_CODES,
+  adjudicate,
+  verdictRow,
+  type EmailAdjudication,
+} from "../src/adjudicate/verdict.js";
 import { generateVerdictReceipt } from "../src/adjudicate/receipt.js";
 import { DEFAULT_POLICY, computeCharge } from "../src/adjudicate/billing.js";
 import type { Adjudication } from "../src/adjudicate/verdict.js";
@@ -362,6 +369,70 @@ describe("lo schema di input non dichiara niente che il codice non faccia", () =
   it("ogni proprietà ha una descrizione: senza, la build Apify fallisce dopo il clone", () => {
     for (const [nome, p] of Object.entries(SCHEMA.properties)) {
       expect(p.description ?? "", `${nome} senza description`).not.toBe("");
+    }
+  });
+});
+
+/**
+ * Lo schema di USCITA dichiara al cliente cosa riceverà. È una promessa come le
+ * altre, e ha già un precedente: il DIARIO §8 racconta di uno schema del dataset
+ * che dichiarava campi che l'Actor non scriveva mai — «la spunta era verde e il
+ * documento mentiva».
+ *
+ * Questi test lo impediscono confrontando lo schema con `verdictRow()`, che è la
+ * funzione che l'attore usa DAVVERO per costruire ogni riga. Non con un elenco
+ * copiato a mano: con il codice che produce il dato.
+ */
+describe("lo schema di uscita dichiara esattamente quello che scriviamo", () => {
+  const SCHEMA = JSON.parse(
+    readFileSync(
+      new URL("../actors/lead-adjudicator/.actor/dataset_schema.json", import.meta.url),
+      "utf8",
+    ),
+  ) as {
+    fields: { properties: Record<string, { enum?: string[] }>; required: string[] };
+    views: Record<string, { transformation: { fields: string[] } }>;
+  };
+
+  const dichiarati = Object.keys(SCHEMA.fields.properties).sort();
+
+  it("i campi dichiarati sono esattamente quelli che l'attore produce", () => {
+    const { g } = giudizio();
+    const prodotti = [...new Set(g.records.flatMap((r) => Object.keys(verdictRow(r))))].sort();
+    // I due versi, entrambi: niente dichiarato-e-mai-scritto (la spunta comprata)
+    // e niente scritto-e-mai-dichiarato (il cliente riceve roba non documentata).
+    expect(prodotti).toEqual(dichiarati);
+    expect(SCHEMA.fields.required.slice().sort()).toEqual(dichiarati);
+  });
+
+  it("la vista mostra tutti i campi, senza nasconderne nessuno", () => {
+    expect(SCHEMA.views["verdicts"]!.transformation.fields.slice().sort()).toEqual(dichiarati);
+  });
+
+  it("i verdetti elencati sono esattamente quelli che il motore sa emettere", () => {
+    // `VERDICTS` esiste a runtime apposta per questo genere di controllo.
+    expect(SCHEMA.fields.properties["verdict"]!.enum!.slice().sort())
+      .toEqual([...VERDICTS].sort());
+  });
+
+  it("i codici di ragione e di avviso sono quelli veri", () => {
+    const reason = SCHEMA.fields.properties["reasons"] as unknown as {
+      items: { properties: { code: { enum: string[] } } };
+    };
+    expect(reason.items.properties.code.enum.slice().sort()).toEqual([...REASON_CODES].sort());
+    const warn = SCHEMA.fields.properties["warnings"] as unknown as {
+      items: { properties: { code: { enum: string[] } } };
+    };
+    expect(warn.items.properties.code.enum.slice().sort()).toEqual([...WARNING_CODES].sort());
+  });
+
+  it("«charged» nello schema è la stessa cosa che decide la fattura", () => {
+    // Lo schema dice al cliente che gli indecidibili non si pagano. Se un
+    // giorno `billable` e `charged` divergessero, la scheda mentirebbe.
+    const { g } = giudizio();
+    for (const r of g.records) {
+      expect(verdictRow(r).charged).toBe(r.billable);
+      if (r.verdict === "undecidable") expect(verdictRow(r).charged).toBe(false);
     }
   });
 });
