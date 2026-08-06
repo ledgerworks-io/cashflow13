@@ -123,10 +123,26 @@ export interface Charge {
   grossUsd: number;
   /** Il tetto: consegnati ÷ 1.000 × la tariffa. Sempre un numero, mai assente. */
   capUsd: number;
+  /**
+   * Vero quando questo tetto sta **sotto** il lordo. Attenzione: non significa
+   * che abbia deciso il totale — quando due tetti stanno entrambi sotto, sono
+   * veri entrambi. Per sapere chi ha deciso c'è `decidedBy`.
+   */
   capApplied: boolean;
   /** Il massimo che la piattaforma consente per questa esecuzione. */
   platformCapUsd: number | null;
+  /** Come `capApplied`: «sta sotto il lordo», non «ha deciso». */
   platformCapApplied: boolean;
+  /**
+   * Chi ha **determinato** il totale, cioè quale dei tre vincoli è il minimo.
+   *
+   * Esiste perché fino al 7 agosto 2026 il log dell'esecuzione annunciava
+   * «tetto applicato» e «tetto della piattaforma applicato» insieme, quando a
+   * decidere era uno solo: il conto era giusto e la frase no. In un prodotto
+   * che vende trasparenza sulla fattura, la riga che spiega la fattura è
+   * parte del prodotto.
+   */
+  decidedBy: "list" | "cap" | "platformCap";
   /** Quello che si addebita. */
   totalUsd: number;
   /**
@@ -184,6 +200,13 @@ export function computeCharge(
     platformCapUsd ?? Number.POSITIVE_INFINITY,
   );
 
+  // Chi ha deciso, si guarda PRIMA dell'arrotondamento: `platformCapUsd` arriva
+  // grezzo dalla piattaforma e `usd()` potrebbe spostarlo di un millesimo di
+  // centesimo, facendo sembrare che abbia deciso qualcun altro. A parità vince
+  // il listino: se il lordo è già il minimo, nessun tetto ha tolto niente.
+  const decidedBy: Charge["decidedBy"] =
+    totalUsd === grossUsd ? "list" : totalUsd === capUsd ? "cap" : "platformCap";
+
   // Da dollari a eventi. Il 1e-9 assorbe la deriva binaria (4800*0.005 può
   // valere 23.999999999996): senza, si perderebbe un evento ogni tanto.
   const billedEvents =
@@ -201,6 +224,7 @@ export function computeCharge(
     capApplied: capUsd < grossUsd,
     platformCapUsd,
     platformCapApplied: platformCapUsd !== null && platformCapUsd < grossUsd,
+    decidedBy,
     totalUsd: usd(totalUsd),
     billedEvents,
   };

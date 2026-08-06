@@ -48,8 +48,15 @@ export function chunkForDataset<T>(
     if (suo + 2 > maxBytes) {
       // Una riga sola oltre il limite non è divisibile. Spedirla comunque
       // vorrebbe dire un 413 ignorato, cioè il difetto che stiamo chiudendo.
+      // La causa quasi sempre è la stessa e conviene nominarla: la regola che
+      // il record ha violato viene ricopiata dentro OGNI verdetto di scarto,
+      // valore compreso. Un `value` enorme nell'input (una lista `oneOf` lunga,
+      // per esempio) gonfia ogni riga di uscita della stessa quantità.
       throw new RangeError(
-        `una singola riga occupa ${suo} byte e non sta nel limite di ${maxBytes}`,
+        `una singola riga di verdetto occupa ${suo} byte e non sta nel limite di `
+        + `${maxBytes} imposto da Apify. Di solito significa che un criterio in `
+        + `«filters» ha un valore molto grande: viene ripetuto in ogni record che `
+        + `lo viola. Accorcia quel criterio e riprova.`,
       );
     }
     if (corrente.length > 0 && dimensione + suo > maxBytes) {

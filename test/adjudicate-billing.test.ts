@@ -362,4 +362,58 @@ describe("da dollari a eventi — è questo il numero che va ad Apify", () => {
       expect(c.billedEvents * DEFAULT_POLICY.pricePerRecordUsd).toBeLessThanOrEqual(c.totalUsd + 1e-9);
     }
   });
+
+  /**
+   * `decidedBy` esiste perché la riga di log che spiega la fattura diceva una
+   * cosa imprecisa: annunciava «tetto applicato» e «tetto della piattaforma
+   * applicato» insieme, quando a determinare il totale era uno solo. Il conto
+   * era giusto — è il minimo dei tre — ma la spiegazione no, e in un prodotto
+   * che vende trasparenza sulla fattura la spiegazione è parte del prodotto.
+   */
+  describe("chi ha DECISO il totale, non chi sta sotto il lordo", () => {
+    it("nessun tetto morde: decide il listino", () => {
+      const c = computeCharge(giudizio(5_000, 195_000), DEFAULT_POLICY, 1_000);
+      expect(c.decidedBy).toBe("list");
+      expect(c.totalUsd).toBe(c.grossUsd);
+    });
+
+    it("morde solo il nostro tetto", () => {
+      // 5.000 consegnati tutti aggiudicati: lordo $24, tetto nostro $3,75.
+      const c = computeCharge(giudizio(5_000), DEFAULT_POLICY, 1_000);
+      expect(c.decidedBy).toBe("cap");
+      expect(c.totalUsd).toBe(c.capUsd);
+    });
+
+    it("morde solo il tetto della piattaforma", () => {
+      const c = computeCharge(giudizio(5_000), DEFAULT_POLICY, 1);
+      expect(c.decidedBy).toBe("platformCap");
+      expect(c.totalUsd).toBe(1);
+    });
+
+    it("quando stanno sotto ENTRAMBI, ne nomina uno solo — il più basso", () => {
+      // Il caso che produceva la frase sbagliata: lordo $24, tetto nostro
+      // $3,75, tetto piattaforma $3. Prima il log li annunciava tutti e due.
+      const c = computeCharge(giudizio(5_000), DEFAULT_POLICY, 3);
+      expect(c.capApplied, "il nostro tetto sta sotto il lordo").toBe(true);
+      expect(c.platformCapApplied, "anche quello della piattaforma").toBe(true);
+      expect(c.decidedBy, "ma a decidere è il più basso dei due").toBe("platformCap");
+      expect(c.totalUsd).toBe(3);
+
+      // e nel verso opposto, con lo stesso lordo
+      const d = computeCharge(giudizio(5_000), DEFAULT_POLICY, 3.75);
+      expect(d.capApplied && d.platformCapApplied).toBe(true);
+      expect(d.decidedBy).toBe("cap");
+    });
+
+    it("chi decide corrisponde sempre al minimo davvero addebitato", () => {
+      for (const [ok, boh, max] of [
+        [0, 0, undefined], [200, 0, 100], [201, 5, 0.5], [1_000, 0, 0.1],
+        [10_000, 10_000, 10_000], [5_000, 0, undefined], [63_500, 36_500, 1],
+      ] as [number, number, number | undefined][]) {
+        const c = computeCharge(giudizio(ok, boh), DEFAULT_POLICY, max);
+        const atteso = { list: c.grossUsd, cap: c.capUsd, platformCap: c.platformCapUsd ?? NaN }[c.decidedBy];
+        expect(Math.abs(atteso - c.totalUsd), `${ok}/${boh}/${max} → ${c.decidedBy}`).toBeLessThan(1e-6);
+      }
+    });
+  });
 });

@@ -36,7 +36,7 @@
     "amountPaidUsd": {
       "title": "Amount you paid for this data (USD)",
       "type": "number",
-      "description": "What this dataset cost you, from your Apify console. Optional, but recommended: it produces your real cost per usable record, and it activates the cap — you are never charged more than half of what you declare here.",
+      "description": "What this dataset cost you, from your Apify console. Optional: it produces your real cost per usable record in the receipt. It has no effect on what you are charged — the ceiling is worked out on the records you gave us, which we count ourselves, so there is nothing you can declare here that would change your bill.",
       "editor": "number"
     },
     "locale": {

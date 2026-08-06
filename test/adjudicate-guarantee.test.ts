@@ -181,6 +181,35 @@ describe("il conto in soldi, sulla lista misurata dallo spike", () => {
  * che la scheda dica quella. Cambiare il listino e dimenticare il README
  * adesso rompe la suite.
  */
+/**
+ * Le promesse ritirate, in un posto solo — e sorvegliate su OGNI superficie che
+ * il cliente legge.
+ *
+ * Il 6 agosto 2026 il tetto «metà di quanto dichiari» è stato abolito, ma il
+ * 7 la verifica indipendente l'ha ritrovato vivo in due punti: nel README
+ * («activates the 50% cap») e nella descrizione di `amountPaidUsd` nello schema
+ * di input («never charged more than half of what you declare here»), che è la
+ * frase che il cliente ha davanti **mentre digita il numero**.
+ *
+ * Erano sopravvissute per due ragioni, e sono due lezioni diverse:
+ *
+ *  1. le vecchie asserzioni cercavano due frasi esatte, non il **concetto**.
+ *     «activates the 50% cap» non somigliava a nessuna delle due;
+ *  2. **nessun test leggeva `input_schema.json`.** Una dichiarazione
+ *     commerciale che nessun test guarda è esattamente il difetto che questo
+ *     file esiste per impedire — e stava nel file che il codice non importa.
+ *
+ * Quindi: un elenco solo, applicato a tutte le superfici. Aggiungere una
+ * superficie significa aggiungerla a `SUPERFICI`, non riscrivere le regole.
+ */
+const PROMESSE_RITIRATE = [
+  /half of what you tell us/i,
+  /half of what you (paid|declare|spent)/i,
+  /\b50\s*%\s*cap\b/i,
+  /activates the cap/i,
+  /never charged more than half/i,
+];
+
 describe("la scheda del prodotto dice numeri che discendono dal codice", () => {
   const README = readFileSync(
     new URL("../actors/lead-adjudicator/README.md", import.meta.url),
@@ -210,8 +239,9 @@ describe("la scheda del prodotto dice numeri che discendono dal codice", () => {
     // us you paid», e chi dichiarava $0 pagava $0 su record dimostrati. La
     // promessa poggiava sull'onore nel prodotto che si chiama «paghi solo
     // quello che sappiamo dimostrare».
-    expect(README).not.toMatch(/half of what you tell us/i);
-    expect(README).not.toMatch(/half of what you (paid|declare)/i);
+    for (const vietato of PROMESSE_RITIRATE) {
+      expect(README, `il README non deve contenere ${vietato}`).not.toMatch(vietato);
+    }
   });
 
   it("ogni riga della tabella sulla scheda si ricalcola dal codice", () => {
@@ -276,6 +306,63 @@ describe("la scheda del prodotto dice numeri che discendono dal codice", () => {
     // garantire. Il confronto giusto è col nostro stesso listino.
     expect(README).not.toMatch(/sixth of what the data itself cost/i);
     expect(README).not.toContain("$0.0017");
+  });
+});
+
+/**
+ * Lo schema di input È la scheda del prodotto, tanto quanto il README.
+ *
+ * Il codice non lo importa mai — lo legge Apify per costruire il modulo — e per
+ * questo era rimasto fuori da ogni test fino al 7 agosto 2026, con dentro la
+ * vecchia promessa del tetto al 50%. È la superficie su cui il cliente prende
+ * la decisione: quello che c'è scritto qui vale quanto quello che fa
+ * `computeCharge`.
+ */
+describe("lo schema di input non dichiara niente che il codice non faccia", () => {
+  const GREZZO = readFileSync(
+    new URL("../actors/lead-adjudicator/.actor/input_schema.json", import.meta.url),
+    "utf8",
+  );
+  const SCHEMA = JSON.parse(GREZZO) as {
+    properties: Record<string, { description?: string; title?: string }>;
+  };
+
+  it("non contiene nessuna delle promesse ritirate", () => {
+    for (const vietato of PROMESSE_RITIRATE) {
+      expect(GREZZO, `lo schema di input non deve contenere ${vietato}`).not.toMatch(vietato);
+    }
+  });
+
+  it("`amountPaidUsd` dichiara di NON influire sulla fattura", () => {
+    // È il punto esatto in cui la vecchia promessa viveva: il campo che il
+    // cliente compila credendo di abbassarsi il conto. `computeCharge` non lo
+    // riceve nemmeno come parametro — la descrizione deve dirlo.
+    const d = SCHEMA.properties["amountPaidUsd"]?.description ?? "";
+    expect(d, "amountPaidUsd deve avere una descrizione").not.toBe("");
+    expect(d).toMatch(/no effect on what you are charged/i);
+  });
+
+  it("`amountPaidUsd` non entra davvero nel calcolo della fattura", () => {
+    // La prova che regge la frase qui sopra: a parità di verdetti, qualunque
+    // importo dichiarato produce la stessa fattura. Se un giorno rientrasse nel
+    // conto, questo cade prima della scheda.
+    const g = finto(20_000, 12_700);
+    const atteso = computeCharge(g, DEFAULT_POLICY).totalUsd;
+    for (const dichiarato of [0, 0.01, 20, 1_000_000]) {
+      const conDichiarazione = computeCharge(
+        { ...g, summary: { ...g.summary, costPerGoodRecordUsd: dichiarato } },
+        DEFAULT_POLICY,
+      );
+      expect(conDichiarazione.totalUsd, `dichiarando $${dichiarato}`).toBe(atteso);
+    }
+    // E il vecchio difetto, nominato: chi dichiarava $0 pagava $0.
+    expect(atteso).toBeGreaterThan(0);
+  });
+
+  it("ogni proprietà ha una descrizione: senza, la build Apify fallisce dopo il clone", () => {
+    for (const [nome, p] of Object.entries(SCHEMA.properties)) {
+      expect(p.description ?? "", `${nome} senza description`).not.toBe("");
+    }
   });
 });
 

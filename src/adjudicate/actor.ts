@@ -223,13 +223,19 @@ export async function main(): Promise<void> {
   const policy = await effectivePolicy();
   const platformMax = toAmount(process.env["ACTOR_MAX_TOTAL_CHARGE_USD"]);
   const charged = computeCharge(result, policy, platformMax);
+  // La riga che spiega la fattura dice CHI ha deciso, non quali vincoli stanno
+  // sotto il lordo: quando ne stanno sotto due, annunciarli entrambi è vero e
+  // insieme fuorviante. Il conto era giusto già prima; questa frase è il
+  // prodotto tanto quanto il conto.
+  const perche = {
+    list: `listino pieno: nessun tetto ha tolto niente`,
+    cap: `ha deciso il NOSTRO tetto: ${charged.delivered} consegnati × $${policy.capUsdPer1000Delivered}/1000 = $${charged.capUsd.toFixed(4)}`,
+    platformCap: `ha deciso il tetto della piattaforma: $${(charged.platformCapUsd ?? 0).toFixed(4)}`,
+  }[charged.decidedBy];
   console.log(
     `da fatturare: ${charged.adjudicated} aggiudicati − ${charged.free} gratuiti `
-    + `= ${charged.chargeable} × $${policy.pricePerRecordUsd} → $${charged.totalUsd.toFixed(4)}`
-    + (charged.capApplied
-      ? ` (tetto applicato: ${charged.delivered} consegnati × $${policy.capUsdPer1000Delivered}/1000 = $${charged.capUsd.toFixed(4)})`
-      : "")
-    + (charged.platformCapApplied ? " (tetto della piattaforma applicato)" : ""),
+    + `= ${charged.chargeable} × $${policy.pricePerRecordUsd} = $${charged.grossUsd.toFixed(4)} lordo `
+    + `→ $${charged.totalUsd.toFixed(4)} (${perche})`,
   );
 
   // --- Prima si consegna -------------------------------------------------
@@ -281,4 +287,20 @@ export async function main(): Promise<void> {
   console.log("fatto.");
 }
 
-await main();
+/**
+ * Un fallimento deve **restare** un fallimento — l'uscita diversa da zero è
+ * quello che fa dire FAILED alla piattaforma, e una corsa FAILED non addebita.
+ * Qui si aggiunge solo la spiegazione: fino al 7 agosto 2026 usciva una
+ * `RangeError` con lo stack di Node, e il cliente non aveva modo di sapere se
+ * gli fosse stato addebitato qualcosa. La risposta è no, sempre, e vale la
+ * pena scriverla proprio quando le cose vanno male.
+ */
+await main().catch((err: unknown) => {
+  const msg = err instanceof Error ? err.message : String(err);
+  console.error(`esecuzione fallita: ${msg}`);
+  console.error(
+    "NON è stato addebitato niente. Si consegna prima e si addebita dopo, "
+    + "quindi una consegna che non riesce non produce nessuna fattura.",
+  );
+  process.exit(1);
+});

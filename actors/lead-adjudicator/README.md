@@ -95,7 +95,7 @@ held only for the life of the run.
 | `filters` | no | The criteria you asked for, e.g. `[{"field":"region","op":"equals","value":"Lombardia"}]` |
 | `dedupeKeys` | no | Fields that identify one record, e.g. `["email"]` |
 | `emailField` | no | Name of the email field, to turn on the email column |
-| `amountPaidUsd` | no | What you paid. Produces cost per usable record, and activates the 50% cap. |
+| `amountPaidUsd` | no | What you paid for the data. Used only to show your real cost per usable record. **It has no effect on what you are charged.** |
 | `locale` | no | `en` or `it` |
 
 ## Privacy
