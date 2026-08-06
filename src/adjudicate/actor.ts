@@ -6,9 +6,18 @@
  *
  * Due decisioni che valgono più del codice che le implementa:
  *
- * 1. **Prima si consegna, poi si addebita.** Se qualcosa si rompe in mezzo, la
- *    perdita è nostra. Addebitare e poi non consegnare è esattamente la
- *    lamentela contro cui è costruito questo prodotto.
+ * 1. **Prima si consegna, poi si addebita — e la consegna si VERIFICA.** Se
+ *    qualcosa si rompe in mezzo, la perdita è nostra. Addebitare e poi non
+ *    consegnare è esattamente la lamentela contro cui è costruito questo
+ *    prodotto.
+ *
+ *    L'ordine da solo non bastava, ed è il difetto trovato il 6 agosto 2026:
+ *    `fetch` non lancia sui 4xx, quindi le due consegne partivano senza
+ *    guardare l'esito. Oltre 9.437.184 byte Apify risponde `413` e non scrive
+ *    niente — sopra i ~56.000 record il cliente non riceveva **nessun**
+ *    verdetto, il log dichiarava di averli consegnati, e l'addebito partiva
+ *    lo stesso. Ora ogni consegna controlla `r.ok` e lancia: se non è
+ *    arrivata, `charge()` non viene mai raggiunto.
  * 2. **Il tetto dell'utente lo imponiamo noi.** L'API di Apify non lo fa
  *    rispettare (vedi `billing.ts`): oltre il limite si lavora gratis e si paga
  *    il calcolo.
@@ -18,11 +27,11 @@ import { buildEmailLookup, nodeDnsResolver } from "./email.js";
 import {
   DEFAULT_POLICY,
   computeCharge,
-  priceFromPricingInfo,
   type ApifyPricingInfo,
   type BillingPolicy,
 } from "./billing.js";
 import { generateVerdictReceipt } from "./receipt.js";
+import { chunkForDataset, priceFromRunOrActor } from "./platform.js";
 import { valueAt, type FilterRule } from "../audit/report.js";
 import type { Locale } from "../i18n/index.js";
 
@@ -52,6 +61,24 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
   const r = await fetch(url, { ...init, headers: { ...auth, ...(init?.headers ?? {}) } });
   if (!r.ok) throw new Error(`${r.status} su ${url}: ${(await r.text()).slice(0, 200)}`);
   return (await r.json()) as T;
+}
+
+/**
+ * Una consegna che deve riuscire, o fermare tutto.
+ *
+ * `fetch` **non lancia sui 4xx**: senza questo controllo un `413` passava
+ * inosservato, il log dichiarava la consegna e l'addebito partiva lo stesso.
+ * Qui si lancia apposta, perché più a valle c'è `charge()`: se la consegna non
+ * è riuscita, il cliente non deve essere fatturato. La perdita è nostra, ed è
+ * il verso giusto in cui sbagliare.
+ */
+async function consegna(url: string, init: RequestInit, cosa: string): Promise<void> {
+  const r = await fetch(url, { ...init, headers: { ...auth, ...(init.headers ?? {}) } });
+  if (!r.ok) {
+    throw new Error(
+      `consegna fallita (${cosa}): ${r.status} — ${(await r.text()).slice(0, 200)}`,
+    );
+  }
 }
 
 /** Tutte le righe, non le prime mille: un conto parziale è un conto sbagliato. */
@@ -84,31 +111,50 @@ function toAmount(v: number | string | undefined): number | undefined {
  * «bait-and-switch». **La console è la fonte di verità**: se dice un prezzo
  * diverso, si usa il suo e lo si urla nei log.
  */
+async function leggiPricingInfo(url: string): Promise<ApifyPricingInfo | null> {
+  try {
+    const r = await fetch(url, { headers: auth });
+    if (!r.ok) return null;
+    const body = (await r.json()) as {
+      data?: { pricingInfo?: ApifyPricingInfo; currentPricingInfo?: ApifyPricingInfo };
+    };
+    return body.data?.pricingInfo ?? body.data?.currentPricingInfo ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function effectivePolicy(): Promise<BillingPolicy> {
   const actorId = process.env["ACTOR_ID"] ?? process.env["APIFY_ACTOR_ID"] ?? "";
-  if (!actorId) return DEFAULT_POLICY;
-  try {
-    const r = await fetch(`${API}/acts/${actorId}`, { headers: auth });
-    if (!r.ok) throw new Error(String(r.status));
-    const body = (await r.json()) as { data?: { currentPricingInfo?: ApifyPricingInfo } };
-    const configurato = priceFromPricingInfo(body.data?.currentPricingInfo, EVENT);
-    if (configurato === null) {
-      console.warn(`prezzo di «${EVENT}» non leggibile: uso il predefinito $${DEFAULT_POLICY.pricePerRecordUsd}`);
-      return DEFAULT_POLICY;
-    }
-    if (configurato !== DEFAULT_POLICY.pricePerRecordUsd) {
-      console.error(
-        `ATTENZIONE: il prezzo in console è $${configurato}, il codice dice `
-        + `$${DEFAULT_POLICY.pricePerRecordUsd}. Uso quello della console, così la `
-        + `ricevuta dice la verità. Allineare DEFAULT_POLICY.`,
-      );
-      return { ...DEFAULT_POLICY, pricePerRecordUsd: configurato };
-    }
-    return DEFAULT_POLICY;
-  } catch (err) {
-    console.warn(`prezzo non verificabile (${String(err)}): uso il predefinito`);
+
+  // La corsa PRIMA dell'attore: `pricingInfo` della corsa è il prezzo risolto
+  // per la fascia di CHI CHIAMA, cioè quello che il cliente paga davvero. Su un
+  // attore privato `currentPricingInfo` resta `null` (misurato il 6 agosto
+  // 2026), quindi leggere solo lì vorrebbe dire non leggere mai niente prima
+  // della pubblicazione — e accendere questa difesa per la prima volta in
+  // produzione.
+  const dallaCorsa = RUN_ID ? await leggiPricingInfo(`${API}/actor-runs/${RUN_ID}`) : null;
+  const dallAttore = actorId ? await leggiPricingInfo(`${API}/acts/${actorId}`) : null;
+
+  const { priceUsd, source } = priceFromRunOrActor(dallaCorsa, dallAttore, EVENT);
+
+  if (priceUsd === null) {
+    console.warn(
+      `prezzo di «${EVENT}» non leggibile né dalla corsa né dall'attore: `
+      + `uso il predefinito $${DEFAULT_POLICY.pricePerRecordUsd}`,
+    );
     return DEFAULT_POLICY;
   }
+  if (priceUsd !== DEFAULT_POLICY.pricePerRecordUsd) {
+    console.error(
+      `ATTENZIONE: il prezzo applicato (letto da ${source}) è $${priceUsd}, il codice `
+      + `dice $${DEFAULT_POLICY.pricePerRecordUsd}. Uso quello della piattaforma, così `
+      + `la ricevuta dice la verità. Allineare DEFAULT_POLICY.`,
+    );
+    return { ...DEFAULT_POLICY, pricePerRecordUsd: priceUsd };
+  }
+  console.log(`prezzo confermato dalla piattaforma (${source}): $${priceUsd}`);
+  return DEFAULT_POLICY;
 }
 
 /**
@@ -191,30 +237,42 @@ export async function main(): Promise<void> {
     source: `dataset ${datasetId}`,
     policy,
   });
-  await fetch(`${API}/key-value-stores/${KV}/records/OUTPUT.xlsx`, {
-    method: "PUT",
-    headers: {
-      ...auth,
-      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  await consegna(
+    `${API}/key-value-stores/${KV}/records/OUTPUT.xlsx`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      },
+      body: new Uint8Array(xlsx),
     },
-    body: new Uint8Array(xlsx),
-  });
+    "ricevuta Excel",
+  );
   console.log("ricevuta Excel: memoria dell'esecuzione, chiave OUTPUT.xlsx");
 
-  await fetch(`${API}/datasets/${DATASET_OUT}/items`, {
-    method: "POST",
-    headers: { ...auth, "Content-Type": "application/json" },
-    body: JSON.stringify(
-      result.records.map((r) => ({
-        row: r.index + 1,
-        verdict: r.verdict,
-        charged: r.billable,
-        reasons: r.reasons,
-        warnings: r.warnings,
-      })),
-    ),
-  });
-  console.log("verdetti riga per riga: nel dataset dell'esecuzione");
+  // A pezzi sotto il limite della piattaforma: oltre 9.437.184 byte Apify
+  // risponde 413 e non scrive NIENTE. In un colpo solo, sopra i ~56.000
+  // record, il cliente non riceveva nessun verdetto e veniva fatturato lo
+  // stesso.
+  const verdetti = result.records.map((r) => ({
+    row: r.index + 1,
+    verdict: r.verdict,
+    charged: r.billable,
+    reasons: r.reasons,
+    warnings: r.warnings,
+  }));
+  const pezzi = chunkForDataset(verdetti);
+  for (const [i, pezzo] of pezzi.entries()) {
+    await consegna(
+      `${API}/datasets/${DATASET_OUT}/items`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(pezzo) },
+      `verdetti, pezzo ${i + 1} di ${pezzi.length}`,
+    );
+  }
+  console.log(
+    `verdetti riga per riga: ${verdetti.length} nel dataset dell'esecuzione`
+    + (pezzi.length > 1 ? ` (in ${pezzi.length} scaglioni)` : ""),
+  );
 
   // --- Poi si addebita ---------------------------------------------------
   await charge(charged.billedEvents);

@@ -32,6 +32,46 @@ export interface DomainFacts {
 
 export type DomainResolver = (domain: string) => Promise<DomainFacts>;
 
+/**
+ * Quanti domini si interrogano insieme.
+ *
+ * Non è una manopola di prestazioni: è una promessa al cliente. Fino al
+ * 6 agosto 2026 i domini partivano tutti insieme con `Promise.all`, e misurato
+ * quel giorno **3.000 domini in un colpo davano il 12,2% in TIMEOUT**. Un
+ * timeout diventa `undecidable`, cioè un record che dichiariamo di non saper
+ * giudicare **per colpa nostra** e che quindi non fatturiamo: si perde
+ * l'incasso e si consegna un «non lo so» che non era vero, proprio sulle
+ * esecuzioni grosse.
+ *
+ * Cinquanta è il numero che nella stessa misura non produceva nessun timeout.
+ */
+export const MAX_DNS_IN_PARALLELO = 50;
+
+/**
+ * Esegue `lavoro` su ogni elemento, non più di `limite` alla volta.
+ *
+ * Deliberatamente minuscolo e senza dipendenze: gli operai pescano dalla
+ * stessa coda finché non è vuota, così un dominio lento non blocca gli altri.
+ */
+async function inPool<T>(
+  elementi: readonly T[],
+  limite: number,
+  lavoro: (x: T) => Promise<void>,
+): Promise<void> {
+  let prossimo = 0;
+  const operai = Array.from(
+    { length: Math.max(1, Math.min(limite, elementi.length)) },
+    async () => {
+      for (;;) {
+        const i = prossimo++;
+        if (i >= elementi.length) return;
+        await lavoro(elementi[i]!);
+      }
+    },
+  );
+  await Promise.all(operai);
+}
+
 /** Il bersaglio di un MX nullo è la radice: `.` oppure, per node, la stringa vuota. */
 function bersaglioNullo(exchange: string): boolean {
   return exchange.trim().replace(/\.$/, "") === "";
@@ -199,10 +239,14 @@ export async function buildEmailLookup(
 ): Promise<(address: string) => EmailAdjudication> {
   const statici = new Map<string, EmailAdjudication>();
   const daRisolvere = new Map<string, string[]>(); // dominio -> indirizzi
+  // Un insieme, non una scansione di tutte le liste per ogni indirizzo: quella
+  // era quadratica e su 40.000 indirizzi costava 8 secondi di solo confronto.
+  const visti = new Set<string>();
 
   for (const raw of addresses) {
     const a = normalize(raw);
-    if (a === "" || statici.has(a) || [...daRisolvere.values()].some((v) => v.includes(a))) continue;
+    if (a === "" || visti.has(a)) continue;
+    visti.add(a);
     const subito = classifyWithoutNetwork(a);
     if (subito) {
       statici.set(a, subito);
@@ -215,17 +259,16 @@ export async function buildEmailLookup(
   }
 
   const fatti = new Map<string, DomainFacts>();
-  await Promise.all(
-    [...daRisolvere.keys()].map(async (dominio) => {
-      try {
-        fatti.set(dominio, await resolve(dominio));
-      } catch {
-        // Un risolutore che esplode non deve far esplodere l'aggiudicazione:
-        // diventa «non lo so», che per il cliente significa gratis.
-        fatti.set(dominio, { status: "ERROR", mx: [], hasA: false });
-      }
-    }),
-  );
+  // A scaglioni, non tutti insieme: vedi MAX_DNS_IN_PARALLELO.
+  await inPool([...daRisolvere.keys()], MAX_DNS_IN_PARALLELO, async (dominio) => {
+    try {
+      fatti.set(dominio, await resolve(dominio));
+    } catch {
+      // Un risolutore che esplode non deve far esplodere l'aggiudicazione:
+      // diventa «non lo so», che per il cliente significa gratis.
+      fatti.set(dominio, { status: "ERROR", mx: [], hasA: false });
+    }
+  });
 
   const risolti = new Map<string, EmailAdjudication>();
   for (const [dominio, indirizzi] of daRisolvere) {

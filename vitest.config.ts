@@ -31,6 +31,7 @@ export default defineConfig({
         "src/audit/report.ts",
         "src/audit/receipt.ts",
         "src/adjudicate/billing.ts",
+        "src/adjudicate/platform.ts",
         "src/adjudicate/verdict.ts",
         "src/adjudicate/receipt.ts",
         "src/adjudicate/email.ts",

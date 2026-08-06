@@ -162,6 +162,30 @@ describe("le risposte discendono dalla griglia, non sono numeri scritti", () => 
       expect(v).toHaveProperty("formula");
     }
   });
+
+  it("OGNI risposta guarda davvero la griglia, non solo «è una formula»", async () => {
+    // Questo test esiste perché il 6 agosto 2026 la verifica indipendente ha
+    // provato a rompere una risposta sostituendola con la formula costante `0`
+    // — e **non è caduto niente**. Il controllo qui sopra chiede la FORMA (è un
+    // oggetto formula?), e `{formula:"0"}` la forma ce l'ha.
+    //
+    // Tre delle cinque risposte erano sorvegliate solo così: la data della
+    // settimana negativa, lo scoperto di quella settimana e il saldo minimo.
+    // Una cartella con quelle tre inchiodate a un numero sarebbe passata per
+    // viva. Ora ognuna deve nominare l'intervallo da cui discende.
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(await cartella(sottoZero()));
+    const ws = wb.worksheets[0]!;
+
+    for (const rif of ["B23", "B24", "B25", "B26", "B27"]) {
+      const f = (ws.getCell(rif).value as { formula?: string }).formula ?? "";
+      expect(f, `${rif} deve riferirsi alla colonna dei saldi`).toMatch(/\$J\$8:\$J\$20/);
+    }
+    // La data della settimana negativa pesca dalla colonna delle date, non
+    // altrove: senza questo, `INDEX` su una colonna sbagliata passerebbe.
+    expect((ws.getCell("B24").value as { formula?: string }).formula)
+      .toMatch(/\$B\$8:\$B\$20/);
+  });
 });
 
 describe("l'intestazione si corregge da sola", () => {

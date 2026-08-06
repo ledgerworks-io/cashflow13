@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  MAX_DNS_IN_PARALLELO,
   buildEmailLookup,
   classifyWithoutNetwork,
   leggiMx,
@@ -231,5 +232,109 @@ describe("costo e robustezza", () => {
   it("una lista vuota non fa esplodere niente", async () => {
     const l = await buildEmailLookup([], async () => VIVO);
     expect(l("qualsiasi@cosa.com").verdict).toBe("undecidable");
+  });
+});
+
+/**
+ * La raffica di DNS — un difetto che costava soldi, non prestazioni.
+ *
+ * Fino al 6 agosto 2026 i domini partivano tutti insieme con `Promise.all`.
+ * Misurato quel giorno: **3.000 domini in un colpo, il 12,2% in TIMEOUT**.
+ * Un timeout diventa `undecidable`, cioè un record che dichiariamo di non
+ * saper giudicare **per colpa nostra** e che quindi non fatturiamo. Più grossa
+ * la lista, più «non lo so» in faccia al cliente e più incasso perso — e
+ * proprio sulle esecuzioni grosse, che sono quelle che pagano.
+ */
+describe("la raffica di DNS non si spara tutta insieme", () => {
+  /** Risolutore che registra quante richieste sono in volo nello stesso momento. */
+  function conContatore(): { r: DomainResolver; picco: () => number } {
+    let inVolo = 0;
+    let picco = 0;
+    const r: DomainResolver = async () => {
+      inVolo += 1;
+      picco = Math.max(picco, inVolo);
+      await new Promise((ok) => setTimeout(ok, 1));
+      inVolo -= 1;
+      return VIVO;
+    };
+    return { r, picco: () => picco };
+  }
+
+  it("il tetto è 50: il numero che nella misura non produceva timeout", () => {
+    // Scritto come letterale APPOSTA. Un test che confronta il picco con la
+    // costante si sposta insieme alla costante: togliendo il tetto passerebbe
+    // lo stesso. Verificato il 6 agosto 2026 — quel test non cadeva.
+    expect(MAX_DNS_IN_PARALLELO).toBe(50);
+  });
+
+  it("non supera mai 50 richieste in volo, con 400 domini da risolvere", async () => {
+    const { r, picco } = conContatore();
+    const indirizzi = Array.from({ length: 400 }, (_, i) => `persona${i}@azienda${i}.com`);
+    await buildEmailLookup(indirizzi, r);
+    expect(picco()).toBeLessThanOrEqual(50);
+    // E deve essere molto sotto il numero di domini: è la prova che il tetto
+    // c'è davvero, non che il caso ha voluto bene.
+    expect(picco()).toBeLessThan(400);
+  });
+
+  it("il tetto è comunque un tetto, non un collo di bottiglia da uno alla volta", async () => {
+    const { r, picco } = conContatore();
+    const indirizzi = Array.from({ length: 400 }, (_, i) => `persona${i}@azienda${i}.com`);
+    await buildEmailLookup(indirizzi, r);
+    expect(picco()).toBeGreaterThan(1);
+  });
+
+  it("con meno domini del tetto non si inventa lavoro in più", async () => {
+    const { r, picco } = conContatore();
+    await buildEmailLookup(["a@uno.com", "b@due.com", "c@tre.com"], r);
+    expect(picco()).toBeLessThanOrEqual(3);
+  });
+
+  it("tutti i domini vengono comunque risolti: il tetto non ne perde nessuno", async () => {
+    const contatore = { n: 0 };
+    const indirizzi = Array.from({ length: 300 }, (_, i) => `persona${i}@azienda${i}.com`);
+    const l = await buildEmailLookup(indirizzi, risolutore({}, contatore));
+    expect(contatore.n).toBe(300);
+    for (const a of indirizzi) expect(l(a).verdict).toBe("undecidable");
+  });
+
+  it("un indirizzo ripetuto non si risolve due volte", async () => {
+    const contatore = { n: 0 };
+    const l = await buildEmailLookup(
+      ["mario@azienda.com", "mario@azienda.com", "  MARIO@AZIENDA.COM  "],
+      risolutore({}, contatore),
+    );
+    expect(contatore.n).toBe(1);
+    expect(l("mario@azienda.com").verdict).toBe("undecidable");
+  });
+
+  it("il costo cresce con la lista, non col suo quadrato", async () => {
+    // Fino al 6 agosto 2026 ogni indirizzo veniva confrontato con TUTTI quelli
+    // già visti, ricostruendo ogni volta l'elenco delle liste per dominio:
+    // quadratico. Misurato allora, con risolutore finto e un dominio ogni tre
+    // indirizzi: 5.000 -> 335 ms, 40.000 -> 8.114 ms.
+    //
+    // Si misura un RAPPORTO, non un tempo. Una soglia assoluta dipende da
+    // quanto è carica la macchina e da quanto rallenta la strumentazione della
+    // copertura — infatti al primo tentativo è caduta per 10 ms su 4.000.
+    // Il rapporto invece non dipende dalla velocità: con 8 volte i dati, un
+    // costo lineare cresce ~8 volte, uno quadratico ~64. Il vecchio codice qui
+    // cresceva di 24 volte; questo di circa 8.
+    const tempo = async (n: number): Promise<number> => {
+      const indirizzi = Array.from(
+        { length: n },
+        (_, i) => `persona${i}@azienda${Math.floor(i / 3)}.com`,
+      );
+      const inizio = Date.now();
+      await buildEmailLookup(indirizzi, async () => VIVO);
+      return Date.now() - inizio;
+    };
+
+    const piccolo = await tempo(5_000);
+    const grande = await tempo(40_000);
+
+    // Il pavimento di 250 ms evita che un `piccolo` vicino a zero renda il
+    // rapporto insensato su una macchina veloce.
+    expect(grande).toBeLessThan(Math.max(250, piccolo * 20));
   });
 });
