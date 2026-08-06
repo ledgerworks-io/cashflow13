@@ -229,7 +229,7 @@ export async function main(): Promise<void> {
   // prodotto tanto quanto il conto.
   const perche = {
     list: `listino pieno: nessun tetto ha tolto niente`,
-    cap: `ha deciso il NOSTRO tetto: ${charged.delivered} consegnati × $${policy.capUsdPer1000Delivered}/1000 = $${charged.capUsd.toFixed(4)}`,
+    cap: `ha deciso il NOSTRO tetto: ${charged.delivered} consegnati × $${policy.capUsdPer1000Delivered.toFixed(2)}/1000 = $${charged.capUsd.toFixed(4)}`,
     platformCap: `ha deciso il tetto della piattaforma: $${(charged.platformCapUsd ?? 0).toFixed(4)}`,
   }[charged.decidedBy];
   console.log(
