@@ -31,7 +31,7 @@ import {
   type BillingPolicy,
 } from "./billing.js";
 import { generateVerdictReceipt } from "./receipt.js";
-import { chunkForDataset, priceFromRunOrActor } from "./platform.js";
+import { RECEIPT_KEY, chunkForDataset, priceFromRunOrActor } from "./platform.js";
 import { valueAt, type FilterRule } from "../audit/report.js";
 import type { Locale } from "../i18n/index.js";
 
@@ -246,7 +246,7 @@ export async function main(): Promise<void> {
     policy,
   });
   await consegna(
-    `${API}/key-value-stores/${KV}/records/OUTPUT.xlsx`,
+    `${API}/key-value-stores/${KV}/records/${RECEIPT_KEY}`,
     {
       method: "PUT",
       headers: {
@@ -256,7 +256,7 @@ export async function main(): Promise<void> {
     },
     "ricevuta Excel",
   );
-  console.log("ricevuta Excel: memoria dell'esecuzione, chiave OUTPUT.xlsx");
+  console.log(`ricevuta Excel: memoria dell'esecuzione, chiave ${RECEIPT_KEY}`);
 
   // A pezzi sotto il limite della piattaforma: oltre 9.437.184 byte Apify
   // risponde 413 e non scrive NIENTE. In un colpo solo, sopra i ~56.000

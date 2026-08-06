@@ -71,6 +71,18 @@ export function chunkForDataset<T>(
   return pezzi;
 }
 
+/**
+ * La chiave sotto cui la ricevuta Excel viene consegnata nell'archivio
+ * chiave-valore dell'esecuzione.
+ *
+ * È una costante e non un letterale sparso perché **lo schema di uscita la
+ * pubblica**: `.actor/output_schema.json` dice al cliente di andare a prenderla
+ * lì. Se il codice la scrivesse altrove, la scheda indicherebbe un file che non
+ * esiste — un `404` al posto del documento che dimostra la fattura. C'è un test
+ * che confronta le due cose.
+ */
+export const RECEIPT_KEY = "OUTPUT.xlsx";
+
 /** Da dove è stato letto il prezzo. Serve a dirlo nei log, non a decidere. */
 export type PriceSource = "run" | "actor" | "none";
 

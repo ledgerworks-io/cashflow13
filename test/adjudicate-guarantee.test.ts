@@ -13,6 +13,7 @@ import {
 } from "../src/adjudicate/verdict.js";
 import { generateVerdictReceipt } from "../src/adjudicate/receipt.js";
 import { DEFAULT_POLICY, computeCharge } from "../src/adjudicate/billing.js";
+import { RECEIPT_KEY } from "../src/adjudicate/platform.js";
 import type { Adjudication } from "../src/adjudicate/verdict.js";
 import type { FilterRule } from "../src/audit/report.js";
 
@@ -434,6 +435,58 @@ describe("lo schema di uscita dichiara esattamente quello che scriviamo", () => 
       expect(verdictRow(r).charged).toBe(r.billable);
       if (r.verdict === "undecidable") expect(verdictRow(r).charged).toBe(false);
     }
+  });
+});
+
+/**
+ * Lo schema di USCITA (`.actor/output_schema.json`) dice al cliente **dove**
+ * trovare quello che ha comprato. È distinto dallo schema del dataset, che dice
+ * invece *cosa* c'è in ogni riga: il primo dichiara i recapiti, il secondo il
+ * contenuto. Ci sono voluti due tentativi per capirlo, il 7 agosto 2026.
+ *
+ * Qui il modo di sbagliare è diverso dagli altri: non dichiarare il falso, ma
+ * **mandare il cliente a un indirizzo dove non c'è niente.** Se il codice
+ * scrivesse la ricevuta sotto un'altra chiave, la scheda punterebbe a un 404
+ * proprio sul documento che dimostra la fattura.
+ */
+describe("lo schema di uscita manda il cliente dove il codice scrive davvero", () => {
+  const OUT = JSON.parse(
+    readFileSync(
+      new URL("../actors/lead-adjudicator/.actor/output_schema.json", import.meta.url),
+      "utf8",
+    ),
+  ) as {
+    actorOutputSchemaVersion: number;
+    title: string;
+    properties: Record<string, { title: string; template: string; description?: string }>;
+  };
+
+  it("ha la forma che la piattaforma pretende", () => {
+    expect(OUT.actorOutputSchemaVersion).toBe(1);
+    expect(OUT.title).not.toBe("");
+    for (const [nome, p] of Object.entries(OUT.properties)) {
+      expect(p.title, `${nome} senza title`).not.toBe("");
+      expect(p.template, `${nome} senza template`).not.toBe("");
+    }
+  });
+
+  it("dichiara la ricevuta sotto la chiave che il codice usa davvero", () => {
+    // `RECEIPT_KEY` è la stessa costante che l'attore passa a `consegna()`.
+    expect(OUT.properties["receipt"]!.template).toContain(RECEIPT_KEY);
+    expect(OUT.properties["receipt"]!.template).toContain("apiDefaultKeyValueStoreUrl");
+  });
+
+  it("dichiara i verdetti nel dataset PREDEFINITO, che è dove li scriviamo", () => {
+    // L'attore scrive su ACTOR_DEFAULT_DATASET_ID, non su un dataset con nome:
+    // se lo schema puntasse a uno storage con nome, il cliente non troverebbe
+    // niente.
+    expect(OUT.properties["verdicts"]!.template).toContain("apiDefaultDatasetUrl");
+    expect(OUT.properties["verdicts"]!.template).not.toMatch(/storages\./);
+  });
+
+  it("le due uscite promesse sono esattamente due, e sono quelle che consegniamo", () => {
+    // L'attore fa due consegne: la ricevuta e i verdetti. Nient'altro.
+    expect(Object.keys(OUT.properties).sort()).toEqual(["receipt", "verdicts"]);
   });
 });
 

@@ -1,0 +1,18 @@
+{
+  "actorOutputSchemaVersion": 1,
+  "title": "What this run gives you back",
+  "properties": {
+    "verdicts": {
+      "type": "string",
+      "title": "Verdict for every record",
+      "description": "One row per record you gave us: its position in your file, the verdict, whether it was charged, and why. This is the evidence behind the bill — you can re-do our arithmetic on it.",
+      "template": "{{links.apiDefaultDatasetUrl}}/items"
+    },
+    "receipt": {
+      "type": "string",
+      "title": "Live Excel receipt (OUTPUT.xlsx)",
+      "description": "A real workbook, not a picture of numbers: the totals are COUNTIFs over the per-record verdicts, so every figure derives from the rows above it. Change the amount you paid in the yellow cell and the whole receipt recalculates.",
+      "template": "{{links.apiDefaultKeyValueStoreUrl}}/records/OUTPUT.xlsx"
+    }
+  }
+}
