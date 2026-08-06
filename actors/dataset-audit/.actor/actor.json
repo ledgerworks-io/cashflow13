@@ -6,6 +6,8 @@
   "version": "0.1",
   "buildTag": "latest",
   "dockerfile": "./Dockerfile",
+  "_nota": "dockerContextDir è relativo a questa cartella .actor: tre livelli su = radice del repo. Senza, il contesto sarebbe actors/dataset-audit e l'immagine non vedrebbe src/.",
+  "dockerContextDir": "../../..",
   "input": "./input_schema.json",
   "readme": "../README.md",
   "meta": {
