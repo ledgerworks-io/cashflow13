@@ -1,0 +1,55 @@
+{
+  "title": "Dataset Audit",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "datasetId": {
+      "title": "Dataset to audit",
+      "type": "string",
+      "description": "The dataset produced by the run you want to check. It is read only — this Actor never writes to it, and has no access to anything else in your account.",
+      "editor": "resourcePicker",
+      "resourceType": "dataset",
+      "resourcePermissions": [
+        "READ"
+      ]
+    },
+    "dedupeKeys": {
+      "title": "Fields that identify one record",
+      "type": "array",
+      "description": "Two rows with the same values in these fields are the same record. Example: [\"jobId\"] or [\"name\",\"city\"]. Leave empty to compare whole rows. Dotted paths work: \"author.name\".",
+      "editor": "stringList",
+      "default": []
+    },
+    "filters": {
+      "title": "What you asked for",
+      "type": "array",
+      "description": "The criteria you set on the original run, so they can be checked against what was delivered. Each entry: {\"field\":\"postedAt\",\"op\":\"after\",\"value\":\"2026-07-01\"}. Operators: nonEmpty, equals, oneOf, min, max, after, before, matches.",
+      "editor": "json",
+      "default": []
+    },
+    "amountPaidUsd": {
+      "title": "Amount paid for that run (USD)",
+      "type": "number",
+      "description": "What the run cost you, taken from your Apify console. Optional: without it the audit still reports duplicates and unmet criteria, but cannot compute cost per usable record.",
+      "editor": "number"
+    },
+    "locale": {
+      "title": "Language of the Excel receipt",
+      "type": "string",
+      "description": "Language used for the labels in the generated workbook.",
+      "editor": "select",
+      "default": "en",
+      "enum": [
+        "en",
+        "it"
+      ],
+      "enumTitles": [
+        "English",
+        "Italiano"
+      ]
+    }
+  },
+  "required": [
+    "datasetId"
+  ]
+}

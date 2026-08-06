@@ -145,6 +145,51 @@ export const STRINGS = {
     en: "Internal error. No data was stored.",
     it: "Errore interno. Nessun dato è stato archiviato.",
   },
+
+  // --- Revisore delle esecuzioni ----------------------------------------
+  "audit.title": {
+    en: "Run receipt — what you actually got",
+    it: "Ricevuta dell'esecuzione — cosa hai ricevuto davvero",
+  },
+  "audit.input_note": {
+    en: "The yellow cell is an input — change what you paid and every figure recalculates.",
+    it: "La cella gialla è un input: cambia quanto hai pagato e tutti i numeri si ricalcolano.",
+  },
+  "audit.paid": { en: "Amount paid (USD)", it: "Importo pagato (USD)" },
+  "audit.delivered": { en: "Records delivered", it: "Record consegnati" },
+  "audit.unique": { en: "Distinct records", it: "Record distinti" },
+  "audit.duplicates": { en: "Duplicates you paid for", it: "Duplicati che hai pagato" },
+  "audit.good": {
+    en: "Records matching what you asked for",
+    it: "Record conformi a quello che avevi chiesto",
+  },
+  "audit.cost_delivered": {
+    en: "Cost per delivered record",
+    it: "Costo per record consegnato",
+  },
+  "audit.cost_good": { en: "Cost per usable record", it: "Costo per record utile" },
+  "audit.ratio": {
+    en: "Times more than the headline price",
+    it: "Volte il prezzo apparente",
+  },
+  "audit.sheet.receipt": { en: "Receipt", it: "Ricevuta" },
+  "audit.sheet.duplicates": { en: "Duplicates", it: "Duplicati" },
+  "audit.sheet.violations": { en: "Unmet criteria", it: "Criteri non rispettati" },
+  "audit.sheet.empty": { en: "Empty fields", it: "Campi vuoti" },
+  "audit.col.key": { en: "Key", it: "Chiave" },
+  "audit.col.count": { en: "Times", it: "Volte" },
+  "audit.col.rule": { en: "Criterion you asked for", it: "Criterio che avevi chiesto" },
+  "audit.col.failing": { en: "Records failing it", it: "Record che non lo rispettano" },
+  "audit.col.field": { en: "Field", it: "Campo" },
+  "audit.none": { en: "Nothing to report here.", it: "Niente da segnalare qui." },
+  "audit.no_price": {
+    en: "No amount entered, so no cost per record can be computed.",
+    it: "Nessun importo indicato: il costo per record non si può calcolare.",
+  },
+  "audit.scope": {
+    en: "This tool reads only the dataset you point it at. It has no access to your account.",
+    it: "Questo strumento legge solo il dataset che gli indichi. Non ha accesso al tuo account.",
+  },
 } as const satisfies Record<string, Translations>;
 
 export type StringKey = keyof typeof STRINGS;

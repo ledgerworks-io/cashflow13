@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Dataset Audit">
+  <title>Dataset Audit</title>
+
+  <!-- Fondo: lo stesso blu di lavagna della linea ledgerworks. -->
+  <rect width="512" height="512" rx="96" fill="#1F2A37"/>
+
+  <!-- Lo scontrino, con il bordo inferiore strappato. -->
+  <path fill="#FFFFFF" d="M120 92 H392 V356
+    L376 388 L360 356 L344 388 L328 356 L312 388 L296 356 L280 388 L264 356
+    L248 388 L232 356 L216 388 L200 356 L184 388 L168 356 L152 388 L136 356
+    L120 388 Z"/>
+
+  <!-- Le righe della lista: quello che hai comprato. -->
+  <rect x="152" y="132" width="176" height="18" rx="9" fill="#CBD5E1"/>
+  <rect x="152" y="168" width="208" height="18" rx="9" fill="#CBD5E1"/>
+  <rect x="152" y="204" width="144" height="18" rx="9" fill="#CBD5E1"/>
+
+  <!-- Due righe barrate: i duplicati e gli scarti, pagati e inutili. -->
+  <rect x="152" y="240" width="176" height="18" rx="9" fill="#E2E8F0"/>
+  <path d="M144 249 H336" stroke="#EF6C4D" stroke-width="9" stroke-linecap="round"/>
+  <rect x="152" y="276" width="128" height="18" rx="9" fill="#E2E8F0"/>
+  <path d="M144 285 H288" stroke="#EF6C4D" stroke-width="9" stroke-linecap="round"/>
+
+  <!-- Il totale vero, evidenziato: il numero per cui apri lo strumento. -->
+  <rect x="144" y="312" width="224" height="8" rx="4" fill="#94A3B8"/>
+  <rect x="232" y="328" width="136" height="22" rx="11" fill="#F5B301"/>
+
+</svg>
