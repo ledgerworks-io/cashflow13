@@ -141,3 +141,13 @@ npm run release   # full release chain; stops before anything leaves the machine
 Not OSI-approved, deliberately: the tool is free to use and stays free to use,
 but the option to charge for it later is kept open.
 For other arrangements: `info@chiriba.com`.
+
+---
+
+## Also in this repository
+
+**[Dataset Audit](https://apify.com/ledgerworks/dataset-audit)** — you paid per
+result; it tells you what you got. Duplicates, records that ignored the filters
+you asked for, and the real cost per usable record, with a live Excel receipt.
+Free. Source in [`actors/dataset-audit/`](actors/dataset-audit/), same engine as
+this one.
