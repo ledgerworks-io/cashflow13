@@ -6,7 +6,7 @@
  *
  *   1. non si addebita un record che non abbiamo aggiudicato;
  *   2. i primi 200 record aggiudicati di OGNI esecuzione sono gratuiti;
- *   3. non si addebita mai più di $0,75 ogni 1.000 record consegnati.
+ *   3. non si addebita mai più di $1,50 ogni 1.000 record consegnati.
  *
  * La terza esiste perché la quota di record aggiudicabili non è sotto il nostro
  * controllo: dipende da quanto sono selettivi i criteri del cliente. Serve nel
@@ -69,7 +69,7 @@ export interface BillingPolicy {
 export const DEFAULT_POLICY: BillingPolicy = {
   freePerRun: 200,
   pricePerRecordUsd: 0.005,
-  capUsdPer1000Delivered: 0.75,
+  capUsdPer1000Delivered: 1.5,
 };
 
 /**

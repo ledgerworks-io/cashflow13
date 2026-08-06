@@ -230,7 +230,7 @@ describe("la scheda del prodotto dice numeri che discendono dal codice", () => {
 
   it("il tetto dichiarato è quello di DEFAULT_POLICY", () => {
     expect(README).toContain(
-      `Never more than $${DEFAULT_POLICY.capUsdPer1000Delivered} per 1,000 records you gave us`,
+      `Never more than $${DEFAULT_POLICY.capUsdPer1000Delivered.toFixed(2)} per 1,000 records you gave us`,
     );
   });
 
@@ -275,7 +275,7 @@ describe("la scheda del prodotto dice numeri che discendono dal codice", () => {
 
   it("la formula del tetto scritta sulla scheda è quella che il codice applica", () => {
     expect(README).toContain(
-      `records you gave us ÷ 1000 × $${DEFAULT_POLICY.capUsdPer1000Delivered}`,
+      `records you gave us ÷ 1000 × $${DEFAULT_POLICY.capUsdPer1000Delivered.toFixed(2)}`,
     );
     expect(README).toContain(
       `− ${DEFAULT_POLICY.freePerRun} free) × $${DEFAULT_POLICY.pricePerRecordUsd}`,

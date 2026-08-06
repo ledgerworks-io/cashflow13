@@ -257,8 +257,13 @@ export const STRINGS = {
     it: "Prezzo per record aggiudicato",
   },
   "adj.billing.cap": {
-    en: "Cap: $0.75 per 1,000 records you gave us",
-    it: "Tetto: $0,75 ogni 1.000 record che ci hai dato",
+    // `{n}` viene riempito dalla politica applicata, non scritto a mano: fino al
+    // 7 agosto 2026 la tariffa era cablata qui dentro, e cambiare il listino
+    // avrebbe lasciato la ricevuta a DICHIARARE un numero mentre la formula
+    // accanto ne calcolava un altro. È la stessa classe di difetto della
+    // scheda che prometteva il tetto al 50%, in un posto meno visibile.
+    en: "Cap: ${n} per 1,000 records you gave us",
+    it: "Tetto: ${n} ogni 1.000 record che ci hai dato",
   },
   "adj.billing.total": { en: "Total charged", it: "Totale addebitato" },
   "adj.rejected": { en: "Records rejected", it: "Record scartati" },

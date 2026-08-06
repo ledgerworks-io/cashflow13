@@ -17,7 +17,7 @@ import type { FilterRule } from "../src/audit/report.js";
  *
  *   1. non si addebita un record che non abbiamo aggiudicato;
  *   2. i primi 200 record aggiudicati di OGNI esecuzione sono gratuiti;
- *   3. non si addebita mai più di $0,75 ogni 1.000 record consegnati.
+ *   3. non si addebita mai più di $1,50 ogni 1.000 record consegnati.
  *
  * I numeri stanno in `DEFAULT_POLICY` e in nessun altro posto: la scheda del
  * prodotto e il codice devono dire la stessa cosa, e un test lo verifica.
@@ -54,10 +54,10 @@ function giudizio(aggiudicati: number, indecidibili = 0) {
 }
 
 describe("i numeri pubblicati stanno in un posto solo", () => {
-  it("la scheda dice $0,005, primi 200 gratis, $0,75 ogni 1.000 consegnati — e il codice deve dire lo stesso", () => {
+  it("la scheda dice $0,005, primi 200 gratis, $1,50 ogni 1.000 consegnati — e il codice deve dire lo stesso", () => {
     expect(DEFAULT_POLICY.pricePerRecordUsd).toBe(0.005);
     expect(DEFAULT_POLICY.freePerRun).toBe(200);
-    expect(DEFAULT_POLICY.capUsdPer1000Delivered).toBe(0.75);
+    expect(DEFAULT_POLICY.capUsdPer1000Delivered).toBe(1.5);
   });
 });
 
@@ -135,8 +135,8 @@ describe("promessa 1 — non si addebita quello che non si è aggiudicato", () =
     // può salire, fino al massimo del listino sugli aggiudicati e mai oltre.
     const stretta = computeCharge(giudizio(1_000), DEFAULT_POLICY);
     const larga = computeCharge(giudizio(1_000, 1_000), DEFAULT_POLICY);
-    expect(stretta.totalUsd).toBeCloseTo(0.75, 10);  // tetto su 1.000 consegnati
-    expect(larga.totalUsd).toBeCloseTo(1.5, 10);     // tetto su 2.000 consegnati
+    expect(stretta.totalUsd).toBeCloseTo(1.5, 10);  // tetto su 1.000 consegnati
+    expect(larga.totalUsd).toBeCloseTo(3, 10);     // tetto su 2.000 consegnati
     // Il soffitto assoluto resta il listino sugli aggiudicati: $4,00.
     const enorme = computeCharge(giudizio(1_000, 99_000), DEFAULT_POLICY);
     expect(enorme.totalUsd).toBeCloseTo(4, 10);
@@ -145,7 +145,7 @@ describe("promessa 1 — non si addebita quello che non si è aggiudicato", () =
 
   it("un'esecuzione fatta solo di indecidibili non costa niente, per quanto grossa", () => {
     const c = computeCharge(giudizio(0, 100_000), DEFAULT_POLICY);
-    expect(c.capUsd).toBeCloseTo(75, 10); // il tetto sarebbe alto
+    expect(c.capUsd).toBeCloseTo(150, 10); // il tetto sarebbe alto
     expect(c.totalUsd).toBe(0);           // ma non c'è niente da fatturare
     expect(c.billedEvents).toBe(0);
   });
@@ -185,12 +185,12 @@ describe("promessa 2 — i primi 200 aggiudicati sono gratuiti, sempre", () => {
   });
 });
 
-describe("promessa 3 — mai più di $0,75 ogni 1.000 record consegnati", () => {
+describe("promessa 3 — mai più di $1,50 ogni 1.000 record consegnati", () => {
   it("su una lista B2B il tetto non scatta: comanda il listino", () => {
     // 5.000 consegnati, 875 aggiudicati (17,5%): listino $3,375, tetto $3,75.
     const c = computeCharge(giudizio(875, 4_125), DEFAULT_POLICY);
     expect(c.delivered).toBe(5_000);
-    expect(c.capUsd).toBeCloseTo(3.75, 10);
+    expect(c.capUsd).toBeCloseTo(7.5, 10);
     expect(c.capApplied).toBe(false);
     expect(c.totalUsd).toBeCloseTo((875 - 200) * 0.005, 10);
   });
@@ -200,7 +200,7 @@ describe("promessa 3 — mai più di $0,75 ogni 1.000 record consegnati", () => 
     const c = computeCharge(giudizio(5_000), DEFAULT_POLICY);
     expect(c.grossUsd).toBeCloseTo(24, 10);
     expect(c.capApplied).toBe(true);
-    expect(c.totalUsd).toBeCloseTo(3.75, 10);
+    expect(c.totalUsd).toBeCloseTo(7.5, 10);
   });
 
   it("il tetto si calcola sui CONSEGNATI, non sugli aggiudicati", () => {
@@ -208,8 +208,8 @@ describe("promessa 3 — mai più di $0,75 ogni 1.000 record consegnati", () => 
     // tetto deve seguire la lista, non il nostro tasso di successo.
     const piccola = computeCharge(giudizio(1_000), DEFAULT_POLICY);
     const grande = computeCharge(giudizio(1_000, 19_000), DEFAULT_POLICY);
-    expect(piccola.capUsd).toBeCloseTo(0.75, 10);
-    expect(grande.capUsd).toBeCloseTo(15, 10);
+    expect(piccola.capUsd).toBeCloseTo(1.5, 10);
+    expect(grande.capUsd).toBeCloseTo(30, 10);
     expect(piccola.adjudicated).toBe(grande.adjudicated);
   });
 
@@ -217,8 +217,8 @@ describe("promessa 3 — mai più di $0,75 ogni 1.000 record consegnati", () => 
     // A scatti, fra 1.000 e 1.001 record il tetto raddoppierebbe.
     const mille = computeCharge(giudizio(1_000), DEFAULT_POLICY);
     const milleUno = computeCharge(giudizio(1_001), DEFAULT_POLICY);
-    expect(mille.capUsd).toBeCloseTo(0.75, 10);
-    expect(milleUno.capUsd).toBeCloseTo(0.75075, 10);
+    expect(mille.capUsd).toBeCloseTo(1.5, 10);
+    expect(milleUno.capUsd).toBeCloseTo(1.5015, 10);
     expect(milleUno.capUsd - mille.capUsd).toBeLessThan(0.01);
   });
 
@@ -236,8 +236,8 @@ describe("promessa 3 — mai più di $0,75 ogni 1.000 record consegnati", () => 
     // Adesso non c'è nessun parametro da dichiarare, e il conto non cambia.
     const c = computeCharge(giudizio(12_700, 7_300), DEFAULT_POLICY);
     expect(c.delivered).toBe(20_000);
-    expect(c.totalUsd).toBeCloseTo(15, 10); // 20.000/1000 × 0,75
-    expect(c.billedEvents).toBe(3_000);
+    expect(c.totalUsd).toBeCloseTo(30, 10); // 20.000/1000 × 1,50
+    expect(c.billedEvents).toBe(6_000);
   });
 
   it("dataset vuoto: tetto zero, conto zero, nessuna divisione per zero", () => {
@@ -277,9 +277,9 @@ describe("il tetto della piattaforma — che l'API NON fa rispettare da sola", (
   });
 
   it("vince sempre il più basso fra i due tetti", () => {
-    // 5.000 consegnati → tetto nostro $3,75; piattaforma $2 → vince $2
+    // 5.000 consegnati → tetto nostro $7,50; piattaforma $2 → vince $2
     const c = computeCharge(giudizio(5_000), DEFAULT_POLICY, 2);
-    expect(c.capUsd).toBeCloseTo(3.75, 10);
+    expect(c.capUsd).toBeCloseTo(7.5, 10);
     expect(c.totalUsd).toBe(2);
     expect(c.platformCapApplied).toBe(true);
   });
@@ -345,9 +345,9 @@ describe("da dollari a eventi — è questo il numero che va ad Apify", () => {
   });
 
   it("anche il tetto NOSTRO si arrotonda per difetto", () => {
-    // 5.000 consegnati tutti aggiudicati: tetto $3,75 = 750 eventi esatti.
+    // 5.000 consegnati tutti aggiudicati: tetto $7,50 = 1.500 eventi esatti.
     const c = computeCharge(giudizio(5_000), DEFAULT_POLICY);
-    expect(c.billedEvents).toBe(750);
+    expect(c.billedEvents).toBe(1_500);
     expect(c.billedEvents * DEFAULT_POLICY.pricePerRecordUsd).toBeLessThanOrEqual(c.totalUsd + 1e-9);
   });
 
@@ -400,7 +400,7 @@ describe("da dollari a eventi — è questo il numero che va ad Apify", () => {
       expect(c.totalUsd).toBe(3);
 
       // e nel verso opposto, con lo stesso lordo
-      const d = computeCharge(giudizio(5_000), DEFAULT_POLICY, 3.75);
+      const d = computeCharge(giudizio(5_000), DEFAULT_POLICY, 10);
       expect(d.capApplied && d.platformCapApplied).toBe(true);
       expect(d.decidedBy).toBe("cap");
     });

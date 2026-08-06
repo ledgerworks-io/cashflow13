@@ -201,7 +201,12 @@ export async function generateVerdictReceipt(
     // non da quanto il cliente ha dichiarato di aver speso. Quindi c'è sempre,
     // anche quando l'importo pagato non è stato indicato — ed è verificabile
     // con una divisione invece che sulla fiducia.
-    ws.getCell("A27").value = t("adj.billing.cap", loc);
+    // L'etichetta prende la tariffa dalla politica applicata: se un giorno il
+    // listino cambia, la riga che lo dichiara cambia con lui. La virgola
+    // decimale segue la lingua, come tutto il resto del foglio.
+    const tariffa = p.capUsdPer1000Delivered.toFixed(2);
+    ws.getCell("A27").value = t("adj.billing.cap", loc)
+      .replace("{n}", loc === "it" ? tariffa.replace(".", ",") : tariffa);
     ws.getCell("B27").value = { formula: `B6/1000*${p.capUsdPer1000Delivered}` };
     ws.getCell("B27").numFmt = "#,##0.00000";
 

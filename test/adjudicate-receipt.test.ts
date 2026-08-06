@@ -200,7 +200,31 @@ describe("quanto costa, dentro la ricevuta e non solo sulla scheda", () => {
       await generateVerdictReceipt(giudizio(), { amountPaidUsd: 10, policy: DEFAULT_POLICY }),
     );
     const f = (wb.worksheets[0]!.getCell("B27").value as { formula?: string })?.formula ?? "";
-    expect(f).toBe("B6/1000*0.75");
+    expect(f).toBe("B6/1000*1.5");
+  });
+
+  it("l'ETICHETTA del tetto dice la stessa tariffa che la formula applica", async () => {
+    // Fino al 7 agosto 2026 l'etichetta era «Cap: $0.75 per 1,000 records you
+    // gave us» **scritta a mano** nella tabella di localizzazione, mentre la
+    // formula accanto discendeva da `DEFAULT_POLICY`. Alzando il tetto la
+    // ricevuta avrebbe DICHIARATO $0,75 e CALCOLATO $1,50 nella cella sotto:
+    // due numeri diversi nello stesso documento, che è precisamente l'accusa
+    // di bait-and-switch. Nessun test la guardava perché era un'etichetta.
+    const wb = await apri(
+      await generateVerdictReceipt(giudizio(), { amountPaidUsd: 10, policy: DEFAULT_POLICY }),
+    );
+    const etichetta = String(wb.worksheets[0]!.getCell("A27").value ?? "");
+    expect(etichetta).toContain(DEFAULT_POLICY.capUsdPer1000Delivered.toFixed(2));
+    expect(etichetta, "nessun numero cablato rimasto").not.toMatch(/\{n\}/);
+
+    // e in italiano, dove la virgola decimale cambia
+    const it = await apri(
+      await generateVerdictReceipt(giudizio(), { policy: DEFAULT_POLICY, locale: "it" }),
+    );
+    const etichettaIt = String(it.worksheets[0]!.getCell("A27").value ?? "");
+    expect(etichettaIt).toContain(
+      DEFAULT_POLICY.capUsdPer1000Delivered.toFixed(2).replace(".", ","),
+    );
   });
 
   it("il tetto NON dipende più dall'importo che il cliente dichiara", async () => {
@@ -228,7 +252,7 @@ describe("quanto costa, dentro la ricevuta e non solo sulla scheda", () => {
     // e il cliente non aveva modo di vedere la terza promessa applicata.
     const wb = await apri(await generateVerdictReceipt(giudizio(), { policy: DEFAULT_POLICY }));
     const ws = wb.worksheets[0]!;
-    expect((ws.getCell("B27").value as { formula?: string })?.formula).toBe("B6/1000*0.75");
+    expect((ws.getCell("B27").value as { formula?: string })?.formula).toBe("B6/1000*1.5");
     expect((ws.getCell("B28").value as { formula?: string })?.formula).toBe("MIN(B25*B26,B27)");
   });
 

@@ -24,7 +24,7 @@ actually paid per usable record.
 
 > **$0.005 per record we can adjudicate.**
 > **The first 200 adjudicated records of every run are free — always.**
-> **Never more than $0.75 per 1,000 records you gave us.**
+> **Never more than $1.50 per 1,000 records you gave us.**
 
 Every one of those three numbers is checkable against figures printed in your
 receipt. Nothing here asks you to take our word for it.
@@ -49,7 +49,7 @@ Three consequences worth stating plainly:
 We work out what you owe twice, and charge whichever comes out smaller:
 
 - **By the record**: `(records we adjudicated − 200 free) × $0.005`
-- **By the size of the job**: `records you gave us ÷ 1000 × $0.75`
+- **By the size of the job**: `records you gave us ÷ 1000 × $1.50`
 
 That second figure is a ceiling, not a price — it is there so that a very clean
 list cannot end up costing more to check than it is worth. It is worked out on
@@ -58,10 +58,10 @@ figure you have to declare, and nothing you could declare that would change it.
 
 | You give us | We can adjudicate | By the record | Ceiling | **You pay** |
 |---:|---:|---:|---:|---:|
-| 999 | 174 (17%) | $0.00 | $0.75 | **$0.00** |
-| 5,000 | 875 (17%) | $3.38 | $3.75 | **$3.38** |
-| 5,000 | 3,175 (64%) | $14.88 | $3.75 | **$3.75** |
-| 100,000 | 17,500 (17%) | $86.50 | $75.00 | **$75.00** |
+| 999 | 174 (17%) | $0.00 | $1.50 | **$0.00** |
+| 5,000 | 875 (17%) | $3.38 | $7.50 | **$3.38** |
+| 5,000 | 3,175 (64%) | $14.88 | $7.50 | **$7.50** |
+| 100,000 | 17,500 (17%) | $86.50 | $150.00 | **$86.50** |
 
 The first row is free because 174 adjudicated records all sit inside the 200
 you get free every run — not because of the ceiling. On a typical B2B list,
