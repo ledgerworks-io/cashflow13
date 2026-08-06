@@ -193,12 +193,24 @@ describe("quanto costa, dentro la ricevuta e non solo sulla scheda", () => {
     expect(f).toBe("MIN(B25*B26,B27)");
   });
 
-  it("il tetto discende dalla cella dell'importo pagato: si muove se lui la cambia", async () => {
+  it("il tetto discende dai record CONSEGNATI, che la ricevuta conta da sola", async () => {
+    // B6 è «Records delivered», ed è a sua volta una COUNTA sui verdetti. Il
+    // cliente risale dalla fattura fino alle righe senza credere a niente.
     const wb = await apri(
       await generateVerdictReceipt(giudizio(), { amountPaidUsd: 10, policy: DEFAULT_POLICY }),
     );
     const f = (wb.worksheets[0]!.getCell("B27").value as { formula?: string })?.formula ?? "";
-    expect(f).toBe("B5*0.5");
+    expect(f).toBe("B6/1000*0.75");
+  });
+
+  it("il tetto NON dipende più dall'importo che il cliente dichiara", async () => {
+    // Era la falla: la cella del tetto guardava B5 (l'importo pagato), quindi
+    // dichiarare zero azzerava la fattura su record dimostrati.
+    const wb = await apri(
+      await generateVerdictReceipt(giudizio(), { amountPaidUsd: 10, policy: DEFAULT_POLICY }),
+    );
+    const f = (wb.worksheets[0]!.getCell("B27").value as { formula?: string })?.formula ?? "";
+    expect(f).not.toMatch(/B5/);
   });
 
   it("i record addebitati discendono dagli aggiudicati meno la quota gratuita", async () => {
@@ -211,11 +223,13 @@ describe("quanto costa, dentro la ricevuta e non solo sulla scheda", () => {
     expect(ws.getCell("B26").value).toBe(DEFAULT_POLICY.pricePerRecordUsd);
   });
 
-  it("senza importo dichiarato non c'è tetto, e il totale non lo cita", async () => {
+  it("il tetto c'è ANCHE senza importo dichiarato: non dipende più da lui", async () => {
+    // Prima, senza `amountPaidUsd` il blocco del tetto spariva dalla ricevuta
+    // e il cliente non aveva modo di vedere la terza promessa applicata.
     const wb = await apri(await generateVerdictReceipt(giudizio(), { policy: DEFAULT_POLICY }));
     const ws = wb.worksheets[0]!;
-    expect(ws.getCell("B27").value).toBeNull();
-    expect((ws.getCell("B28").value as { formula?: string })?.formula).toBe("B25*B26");
+    expect((ws.getCell("B27").value as { formula?: string })?.formula).toBe("B6/1000*0.75");
+    expect((ws.getCell("B28").value as { formula?: string })?.formula).toBe("MIN(B25*B26,B27)");
   });
 
   it("nessun valore in cache nelle celle nuove", async () => {

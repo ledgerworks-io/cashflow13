@@ -17,11 +17,16 @@ import type { FilterRule } from "../src/audit/report.js";
  *
  *   1. non si addebita un record che non abbiamo aggiudicato;
  *   2. i primi 200 record aggiudicati di OGNI esecuzione sono gratuiti;
- *   3. non si addebita mai più della metà di quanto il cliente dichiara di
- *      aver speso per i dati.
+ *   3. non si addebita mai più di $0,75 ogni 1.000 record consegnati.
  *
  * I numeri stanno in `DEFAULT_POLICY` e in nessun altro posto: la scheda del
  * prodotto e il codice devono dire la stessa cosa, e un test lo verifica.
+ *
+ * La terza promessa è cambiata il 6 agosto 2026. Prima era «metà di quanto
+ * dichiari di aver speso», e la verifica indipendente ha misurato che chi
+ * dichiarava $0 pagava $0: il numero che decideva la fattura lo digitava il
+ * cliente e non era verificabile. Adesso il tetto discende dai record
+ * consegnati, che contiamo noi.
  */
 
 const INDECIDIBILE: EmailAdjudication = {
@@ -49,10 +54,10 @@ function giudizio(aggiudicati: number, indecidibili = 0) {
 }
 
 describe("i numeri pubblicati stanno in un posto solo", () => {
-  it("la scheda dice $0,005, primi 200 gratis, tetto al 50% — e il codice deve dire lo stesso", () => {
+  it("la scheda dice $0,005, primi 200 gratis, $0,75 ogni 1.000 consegnati — e il codice deve dire lo stesso", () => {
     expect(DEFAULT_POLICY.pricePerRecordUsd).toBe(0.005);
     expect(DEFAULT_POLICY.freePerRun).toBe(200);
-    expect(DEFAULT_POLICY.capFractionOfDeclaredSpend).toBe(0.5);
+    expect(DEFAULT_POLICY.capUsdPer1000Delivered).toBe(0.75);
   });
 });
 
@@ -104,10 +109,45 @@ describe("il prezzo vive in due posti, e devono coincidere", () => {
 });
 
 describe("promessa 1 — non si addebita quello che non si è aggiudicato", () => {
-  it("gli indecidibili non entrano nel conto, nemmeno di striscio", () => {
+  it("gli indecidibili non entrano MAI nella base imponibile", () => {
     const conSoloBuoni = computeCharge(giudizio(1_000), DEFAULT_POLICY);
     const conMilleIgnoti = computeCharge(giudizio(1_000, 1_000), DEFAULT_POLICY);
-    expect(conMilleIgnoti.totalUsd).toBe(conSoloBuoni.totalUsd);
+    // Stessi aggiudicati, stesso lordo: gli indecidibili non aggiungono un
+    // centesimo a quello che si fattura.
+    expect(conMilleIgnoti.adjudicated).toBe(conSoloBuoni.adjudicated);
+    expect(conMilleIgnoti.chargeable).toBe(conSoloBuoni.chargeable);
+    expect(conMilleIgnoti.grossUsd).toBe(conSoloBuoni.grossUsd);
+  });
+
+  it("il conto non supera MAI gli aggiudicati a listino, con qualunque zavorra", () => {
+    // È questa la forma esatta della promessa 1, e vale in ogni caso.
+    for (const [ok, boh] of [[1_000, 0], [1_000, 1_000], [1_000, 99_000]] as [number, number][]) {
+      const c = computeCharge(giudizio(ok, boh), DEFAULT_POLICY);
+      expect(c.totalUsd, `${ok}/${boh}`)
+        .toBeLessThanOrEqual((ok - DEFAULT_POLICY.freePerRun) * DEFAULT_POLICY.pricePerRecordUsd + 1e-9);
+    }
+  });
+
+  it("aggiungere indecidibili può ALZARE il tetto, e va detto invece che nascosto", () => {
+    // Effetto collaterale reale del tetto sui consegnati: una lista più grossa
+    // alza il soffitto, quindi toglie sconto. Non è un addebito sugli
+    // indecidibili — il lordo resta identico (test qui sopra) — ma il conto
+    // può salire, fino al massimo del listino sugli aggiudicati e mai oltre.
+    const stretta = computeCharge(giudizio(1_000), DEFAULT_POLICY);
+    const larga = computeCharge(giudizio(1_000, 1_000), DEFAULT_POLICY);
+    expect(stretta.totalUsd).toBeCloseTo(0.75, 10);  // tetto su 1.000 consegnati
+    expect(larga.totalUsd).toBeCloseTo(1.5, 10);     // tetto su 2.000 consegnati
+    // Il soffitto assoluto resta il listino sugli aggiudicati: $4,00.
+    const enorme = computeCharge(giudizio(1_000, 99_000), DEFAULT_POLICY);
+    expect(enorme.totalUsd).toBeCloseTo(4, 10);
+    expect(enorme.capApplied).toBe(false);
+  });
+
+  it("un'esecuzione fatta solo di indecidibili non costa niente, per quanto grossa", () => {
+    const c = computeCharge(giudizio(0, 100_000), DEFAULT_POLICY);
+    expect(c.capUsd).toBeCloseTo(75, 10); // il tetto sarebbe alto
+    expect(c.totalUsd).toBe(0);           // ma non c'è niente da fatturare
+    expect(c.billedEvents).toBe(0);
   });
 
   it("un'esecuzione fatta solo di indecidibili non costa niente", () => {
@@ -145,41 +185,74 @@ describe("promessa 2 — i primi 200 aggiudicati sono gratuiti, sempre", () => {
   });
 });
 
-describe("promessa 3 — mai più della metà di quanto ha speso per i dati", () => {
-  it("nel caso normale il tetto non scatta e non toglie niente", () => {
-    // 5.000 record, 35% aggiudicabile, dati pagati $20 → tetto $10, conto ~$8
-    const c = computeCharge(giudizio(1_750, 3_250), DEFAULT_POLICY, 20);
+describe("promessa 3 — mai più di $0,75 ogni 1.000 record consegnati", () => {
+  it("su una lista B2B il tetto non scatta: comanda il listino", () => {
+    // 5.000 consegnati, 875 aggiudicati (17,5%): listino $3,375, tetto $3,75.
+    const c = computeCharge(giudizio(875, 4_125), DEFAULT_POLICY);
+    expect(c.delivered).toBe(5_000);
+    expect(c.capUsd).toBeCloseTo(3.75, 10);
     expect(c.capApplied).toBe(false);
-    expect(c.totalUsd).toBeCloseTo((1_750 - 200) * 0.005, 10);
+    expect(c.totalUsd).toBeCloseTo((875 - 200) * 0.005, 10);
   });
 
-  it("nel caso brutto scatta e il cliente non paga più della metà", () => {
-    // Tutto aggiudicabile: senza tetto costerebbe più dei dati stessi.
-    const c = computeCharge(giudizio(5_000), DEFAULT_POLICY, 20);
+  it("su una lista pulita scatta, e il conto si ferma alla tariffa", () => {
+    // 5.000 consegnati tutti aggiudicabili: il listino nudo farebbe $24.
+    const c = computeCharge(giudizio(5_000), DEFAULT_POLICY);
     expect(c.grossUsd).toBeCloseTo(24, 10);
     expect(c.capApplied).toBe(true);
-    expect(c.totalUsd).toBe(10);
+    expect(c.totalUsd).toBeCloseTo(3.75, 10);
   });
 
-  it("senza importo dichiarato non c'è tetto, e non se ne inventa uno", () => {
-    const c = computeCharge(giudizio(5_000), DEFAULT_POLICY);
-    expect(c.capUsd).toBeNull();
-    expect(c.capApplied).toBe(false);
-    expect(c.totalUsd).toBeCloseTo(24, 10);
+  it("il tetto si calcola sui CONSEGNATI, non sugli aggiudicati", () => {
+    // Stessi 1.000 aggiudicati, due liste di dimensione molto diversa: il
+    // tetto deve seguire la lista, non il nostro tasso di successo.
+    const piccola = computeCharge(giudizio(1_000), DEFAULT_POLICY);
+    const grande = computeCharge(giudizio(1_000, 19_000), DEFAULT_POLICY);
+    expect(piccola.capUsd).toBeCloseTo(0.75, 10);
+    expect(grande.capUsd).toBeCloseTo(15, 10);
+    expect(piccola.adjudicated).toBe(grande.adjudicated);
   });
 
-  it("un importo dichiarato assurdo non apre un buco nel conto", () => {
-    for (const brutto of [-5, Number.NaN, Number.POSITIVE_INFINITY]) {
-      const c = computeCharge(giudizio(1_000), DEFAULT_POLICY, brutto);
-      expect(c.totalUsd, String(brutto)).toBeCloseTo((1_000 - 200) * 0.005, 10);
-      expect(c.capApplied, String(brutto)).toBe(false);
-    }
+  it("è proporzionale, non a migliaia intere: nessun gradino a ogni mille", () => {
+    // A scatti, fra 1.000 e 1.001 record il tetto raddoppierebbe.
+    const mille = computeCharge(giudizio(1_000), DEFAULT_POLICY);
+    const milleUno = computeCharge(giudizio(1_001), DEFAULT_POLICY);
+    expect(mille.capUsd).toBeCloseTo(0.75, 10);
+    expect(milleUno.capUsd).toBeCloseTo(0.75075, 10);
+    expect(milleUno.capUsd - mille.capUsd).toBeLessThan(0.01);
   });
 
-  it("dati dichiarati a zero: il tetto è zero e il conto è zero", () => {
-    const c = computeCharge(giudizio(5_000), DEFAULT_POLICY, 0);
+  it("999 consegnati su lista B2B: zero, ma per la QUOTA GRATUITA non per il tetto", () => {
+    // 174 aggiudicati, tutti dentro i 200 gratuiti: il listino fa già zero.
+    const c = computeCharge(giudizio(174, 825), DEFAULT_POLICY);
+    expect(c.delivered).toBe(999);
+    expect(c.chargeable).toBe(0);
     expect(c.totalUsd).toBe(0);
-    expect(c.capApplied).toBe(true);
+    expect(c.capApplied).toBe(false); // non è il tetto ad aver fatto zero
+  });
+
+  it("quello che il cliente dichiara non entra più nel conto", () => {
+    // Era la falla: dichiarare $0 azzerava la fattura su record dimostrati.
+    // Adesso non c'è nessun parametro da dichiarare, e il conto non cambia.
+    const c = computeCharge(giudizio(12_700, 7_300), DEFAULT_POLICY);
+    expect(c.delivered).toBe(20_000);
+    expect(c.totalUsd).toBeCloseTo(15, 10); // 20.000/1000 × 0,75
+    expect(c.billedEvents).toBe(3_000);
+  });
+
+  it("dataset vuoto: tetto zero, conto zero, nessuna divisione per zero", () => {
+    const c = computeCharge(giudizio(0), DEFAULT_POLICY);
+    expect(c.delivered).toBe(0);
+    expect(c.capUsd).toBe(0);
+    expect(c.totalUsd).toBe(0);
+    expect(c.billedEvents).toBe(0);
+  });
+
+  it("una tariffa assurda non apre un buco: il tetto non va sotto zero", () => {
+    const politica: BillingPolicy = { ...DEFAULT_POLICY, capUsdPer1000Delivered: -5 };
+    const c = computeCharge(giudizio(5_000), politica);
+    expect(c.capUsd).toBe(0);
+    expect(c.totalUsd).toBe(0);
   });
 });
 
@@ -190,28 +263,30 @@ describe("il tetto della piattaforma — che l'API NON fa rispettare da sola", (
   // bear the associated costs.» Addebitare oltre il tetto non è un errore
   // dell'utente: è lavoro regalato e calcolo pagato.
   it("non si addebita mai oltre il massimo dichiarato dalla piattaforma", () => {
-    const c = computeCharge(giudizio(5_000), DEFAULT_POLICY, undefined, 3);
+    // 5.000 aggiudicati su 195.000 consegnati: il nostro tetto non morde.
+    const c = computeCharge(giudizio(5_000, 190_000), DEFAULT_POLICY, 3);
     expect(c.grossUsd).toBeCloseTo(24, 10);
     expect(c.platformCapApplied).toBe(true);
     expect(c.totalUsd).toBe(3);
   });
 
   it("se il tetto della piattaforma è più alto del conto, non tocca niente", () => {
-    const c = computeCharge(giudizio(1_000), DEFAULT_POLICY, undefined, 1_000);
+    const c = computeCharge(giudizio(1_000, 49_000), DEFAULT_POLICY, 1_000);
     expect(c.platformCapApplied).toBe(false);
     expect(c.totalUsd).toBeCloseTo(4, 10);
   });
 
   it("vince sempre il più basso fra i due tetti", () => {
-    // dichiarato $20 → tetto nostro $10; piattaforma $2 → vince $2
-    const c = computeCharge(giudizio(5_000), DEFAULT_POLICY, 20, 2);
+    // 5.000 consegnati → tetto nostro $3,75; piattaforma $2 → vince $2
+    const c = computeCharge(giudizio(5_000), DEFAULT_POLICY, 2);
+    expect(c.capUsd).toBeCloseTo(3.75, 10);
     expect(c.totalUsd).toBe(2);
     expect(c.platformCapApplied).toBe(true);
   });
 
   it("un tetto di piattaforma assurdo o assente non apre un buco", () => {
     for (const brutto of [undefined, Number.NaN, -1]) {
-      const c = computeCharge(giudizio(1_000), DEFAULT_POLICY, undefined, brutto);
+      const c = computeCharge(giudizio(1_000, 49_000), DEFAULT_POLICY, brutto);
       expect(c.totalUsd, String(brutto)).toBeCloseTo(4, 10);
     }
   });
@@ -220,52 +295,68 @@ describe("il tetto della piattaforma — che l'API NON fa rispettare da sola", (
 describe("l'invariante che tiene insieme le tre promesse", () => {
   const politica: BillingPolicy = DEFAULT_POLICY;
 
-  it("il conto non supera mai aggiudicati × prezzo, in nessuna combinazione", () => {
-    for (const [ok, boh, speso] of [
-      [0, 0, undefined], [50, 500, undefined], [200, 0, 100], [201, 1, 100],
-      [5_000, 5_000, 1_000], [10_000, 0, 5], [1, 99_999, 0.01],
-    ] as [number, number, number | undefined][]) {
-      const c = computeCharge(giudizio(ok, boh), politica, speso);
-      expect(c.totalUsd, `${ok}/${boh}/${speso}`).toBeLessThanOrEqual(
-        ok * politica.pricePerRecordUsd + 1e-9,
-      );
-      expect(c.totalUsd, `${ok}/${boh}/${speso}`).toBeGreaterThanOrEqual(0);
-      if (speso !== undefined && Number.isFinite(speso) && speso >= 0) {
-        expect(c.totalUsd).toBeLessThanOrEqual(speso * politica.capFractionOfDeclaredSpend + 1e-9);
-      }
+  it("le tre promesse valgono TUTTE INSIEME, in ogni combinazione", () => {
+    for (const [ok, boh] of [
+      [0, 0], [50, 500], [200, 0], [201, 1],
+      [5_000, 5_000], [10_000, 0], [1, 99_999], [63_500, 36_500],
+    ] as [number, number][]) {
+      const c = computeCharge(giudizio(ok, boh), politica);
+      const etichetta = `${ok}/${boh}`;
+      // 1: mai più di quanto valgono i soli record aggiudicati
+      expect(c.totalUsd, etichetta).toBeLessThanOrEqual(ok * politica.pricePerRecordUsd + 1e-9);
+      // 2: la quota gratuita non si paga mai
+      expect(c.totalUsd, etichetta)
+        .toBeLessThanOrEqual(Math.max(0, ok - politica.freePerRun) * politica.pricePerRecordUsd + 1e-9);
+      // 3: mai oltre la tariffa sui consegnati
+      expect(c.totalUsd, etichetta)
+        .toBeLessThanOrEqual((ok + boh) / 1000 * politica.capUsdPer1000Delivered + 1e-9);
+      expect(c.totalUsd, etichetta).toBeGreaterThanOrEqual(0);
     }
   });
 
   it("l'aritmetica in virgola mobile non produce centesimi dal nulla", () => {
-    const c = computeCharge(giudizio(4_800 + 200), DEFAULT_POLICY);
-    expect(c.totalUsd).toBe(24); // non 23.999999999
+    // 5.000 aggiudicati su 200.000 consegnati: il tetto ($150) non morde, e il
+    // listino deve fare esattamente 24, non 23,999999999.
+    const c = computeCharge(giudizio(4_800 + 200, 195_000), DEFAULT_POLICY);
+    expect(c.capApplied).toBe(false);
+    expect(c.totalUsd).toBe(24);
   });
 });
 
 describe("da dollari a eventi — è questo il numero che va ad Apify", () => {
   it("senza tetti, un evento per ogni record a pagamento", () => {
-    const c = computeCharge(giudizio(1_000), DEFAULT_POLICY);
+    // 1.000 aggiudicati su 50.000 consegnati: il tetto ($37,50) non morde.
+    const c = computeCharge(giudizio(1_000, 49_000), DEFAULT_POLICY);
+    expect(c.capApplied).toBe(false);
     expect(c.billedEvents).toBe(800);
     expect(c.billedEvents * DEFAULT_POLICY.pricePerRecordUsd).toBeCloseTo(c.totalUsd, 10);
   });
 
   it("la deriva binaria non fa perdere un evento", () => {
-    const c = computeCharge(giudizio(5_000), DEFAULT_POLICY);
+    const c = computeCharge(giudizio(5_000, 195_000), DEFAULT_POLICY);
     expect(c.billedEvents).toBe(4_800); // non 4.799
   });
 
   it("col tetto si arrotonda per DIFETTO: mai un centesimo di troppo", () => {
-    // tetto $3 a $0,005 = 600 eventi esatti; con $3,004 restano 600, non 601
-    expect(computeCharge(giudizio(5_000), DEFAULT_POLICY, undefined, 3).billedEvents).toBe(600);
-    expect(computeCharge(giudizio(5_000), DEFAULT_POLICY, undefined, 3.004).billedEvents).toBe(600);
+    // tetto della piattaforma $3 a $0,005 = 600 eventi esatti; con $3,004
+    // restano 600, non 601.
+    expect(computeCharge(giudizio(5_000, 195_000), DEFAULT_POLICY, 3).billedEvents).toBe(600);
+    expect(computeCharge(giudizio(5_000, 195_000), DEFAULT_POLICY, 3.004).billedEvents).toBe(600);
+  });
+
+  it("anche il tetto NOSTRO si arrotonda per difetto", () => {
+    // 5.000 consegnati tutti aggiudicati: tetto $3,75 = 750 eventi esatti.
+    const c = computeCharge(giudizio(5_000), DEFAULT_POLICY);
+    expect(c.billedEvents).toBe(750);
+    expect(c.billedEvents * DEFAULT_POLICY.pricePerRecordUsd).toBeLessThanOrEqual(c.totalUsd + 1e-9);
   });
 
   it("gli eventi non superano mai i record a pagamento, in nessun caso", () => {
-    for (const [ok, boh, speso, max] of [
-      [0, 0, undefined, undefined], [200, 0, 100, 100], [201, 5, 1, 0.5],
-      [10_000, 10_000, 10_000, 10_000], [5_000, 0, 0.001, undefined],
-    ] as [number, number, number | undefined, number | undefined][]) {
-      const c = computeCharge(giudizio(ok, boh), DEFAULT_POLICY, speso, max);
+    for (const [ok, boh, max] of [
+      [0, 0, undefined], [200, 0, 100], [201, 5, 0.5],
+      [10_000, 10_000, 10_000], [5_000, 0, undefined], [63_500, 36_500, 1],
+    ] as [number, number, number | undefined][]) {
+      const c = computeCharge(giudizio(ok, boh), DEFAULT_POLICY, max);
       expect(c.billedEvents).toBeLessThanOrEqual(c.chargeable);
       expect(c.billedEvents).toBeGreaterThanOrEqual(0);
       expect(c.billedEvents * DEFAULT_POLICY.pricePerRecordUsd).toBeLessThanOrEqual(c.totalUsd + 1e-9);

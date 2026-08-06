@@ -5,8 +5,29 @@ import { describe, expect, it } from "vitest";
 
 import { adjudicate, type EmailAdjudication } from "../src/adjudicate/verdict.js";
 import { generateVerdictReceipt } from "../src/adjudicate/receipt.js";
-import { DEFAULT_POLICY } from "../src/adjudicate/billing.js";
+import { DEFAULT_POLICY, computeCharge } from "../src/adjudicate/billing.js";
+import type { Adjudication } from "../src/adjudicate/verdict.js";
 import type { FilterRule } from "../src/audit/report.js";
+
+/**
+ * Un'aggiudicazione della forma giusta, per ricalcolare le righe pubblicate
+ * senza dover costruire migliaia di record veri.
+ */
+function finto(consegnati: number, aggiudicati: number): Adjudication {
+  return {
+    records: [],
+    summary: {
+      total: consegnati,
+      good: aggiudicati,
+      rejected: 0,
+      duplicate: 0,
+      undecidable: consegnati - aggiudicati,
+      billable: aggiudicati,
+      notBillable: consegnati - aggiudicati,
+      costPerGoodRecordUsd: null,
+    },
+  };
+}
 
 /**
  * La garanzia, provata sui soldi e non solo sulla logica.
@@ -179,8 +200,56 @@ describe("la scheda del prodotto dice numeri che discendono dal codice", () => {
   });
 
   it("il tetto dichiarato è quello di DEFAULT_POLICY", () => {
-    expect(DEFAULT_POLICY.capFractionOfDeclaredSpend).toBe(0.5);
-    expect(README).toMatch(/never charge more than half of what you tell us/i);
+    expect(README).toContain(
+      `Never more than $${DEFAULT_POLICY.capUsdPer1000Delivered} per 1,000 records you gave us`,
+    );
+  });
+
+  it("la scheda non promette più un tetto legato a quello che il cliente dichiara", () => {
+    // Fino al 6 agosto 2026 prometteva «never more than half of what you tell
+    // us you paid», e chi dichiarava $0 pagava $0 su record dimostrati. La
+    // promessa poggiava sull'onore nel prodotto che si chiama «paghi solo
+    // quello che sappiamo dimostrare».
+    expect(README).not.toMatch(/half of what you tell us/i);
+    expect(README).not.toMatch(/half of what you (paid|declare)/i);
+  });
+
+  it("ogni riga della tabella sulla scheda si ricalcola dal codice", () => {
+    // La tabella «You give us / You pay» è una dichiarazione commerciale: se
+    // una riga non discende da `computeCharge`, la scheda dichiara un prezzo
+    // che il codice non applica. Le righe si leggono dal README e si
+    // ricalcolano, invece di fidarsi che qualcuno le abbia aggiornate.
+    const righe = [...README.matchAll(
+      /^\| ([\d,]+) \| ([\d,]+) \(\d+%\) \| \$([\d.]+) \| \$([\d.]+) \| \*\*\$([\d.]+)\*\* \|$/gm,
+    )];
+    expect(righe.length, "la tabella degli esempi deve esistere").toBeGreaterThanOrEqual(4);
+
+    const num = (s: string) => Number(s.replace(/,/g, ""));
+    for (const r of righe) {
+      const [, cons, agg, listino, tetto, paga] = r;
+      const consegnati = num(cons!);
+      const aggiudicati = num(agg!);
+      const c = computeCharge(
+        finto(consegnati, aggiudicati),
+        DEFAULT_POLICY,
+      );
+      const etichetta = `riga «${consegnati} consegnati / ${aggiudicati} aggiudicati»`;
+      // La scheda mostra i centesimi, il motore lavora al millesimo di
+      // centesimo: si confronta l'arrotondamento, ed è quello che deve tornare.
+      const centesimi = (x: number) => Math.round(x * 100) / 100;
+      expect(num(listino!), `${etichetta}: colonna listino`).toBe(centesimi(c.grossUsd));
+      expect(num(tetto!), `${etichetta}: colonna tetto`).toBe(centesimi(c.capUsd));
+      expect(num(paga!), `${etichetta}: colonna «You pay»`).toBe(centesimi(c.totalUsd));
+    }
+  });
+
+  it("la formula del tetto scritta sulla scheda è quella che il codice applica", () => {
+    expect(README).toContain(
+      `records you gave us ÷ 1000 × $${DEFAULT_POLICY.capUsdPer1000Delivered}`,
+    );
+    expect(README).toContain(
+      `− ${DEFAULT_POLICY.freePerRun} free) × $${DEFAULT_POLICY.pricePerRecordUsd}`,
+    );
   });
 
   it("il prezzo per record CONSEGNATO discende dal 17,5% misurato, non da un'ipotesi", () => {

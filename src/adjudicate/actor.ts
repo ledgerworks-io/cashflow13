@@ -222,11 +222,13 @@ export async function main(): Promise<void> {
 
   const policy = await effectivePolicy();
   const platformMax = toAmount(process.env["ACTOR_MAX_TOTAL_CHARGE_USD"]);
-  const charged = computeCharge(result, policy, amountPaidUsd, platformMax);
+  const charged = computeCharge(result, policy, platformMax);
   console.log(
     `da fatturare: ${charged.adjudicated} aggiudicati − ${charged.free} gratuiti `
     + `= ${charged.chargeable} × $${policy.pricePerRecordUsd} → $${charged.totalUsd.toFixed(4)}`
-    + (charged.capApplied ? " (tetto del 50% applicato)" : "")
+    + (charged.capApplied
+      ? ` (tetto applicato: ${charged.delivered} consegnati × $${policy.capUsdPer1000Delivered}/1000 = $${charged.capUsd.toFixed(4)})`
+      : "")
     + (charged.platformCapApplied ? " (tetto della piattaforma applicato)" : ""),
   );
 

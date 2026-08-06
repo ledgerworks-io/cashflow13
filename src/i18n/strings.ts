@@ -257,8 +257,8 @@ export const STRINGS = {
     it: "Prezzo per record aggiudicato",
   },
   "adj.billing.cap": {
-    en: "Cap: half of what you paid for the data",
-    it: "Tetto: metà di quanto hai speso per i dati",
+    en: "Cap: $0.75 per 1,000 records you gave us",
+    it: "Tetto: $0,75 ogni 1.000 record che ci hai dato",
   },
   "adj.billing.total": { en: "Total charged", it: "Totale addebitato" },
   "adj.rejected": { en: "Records rejected", it: "Record scartati" },

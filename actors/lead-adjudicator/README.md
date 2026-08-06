@@ -24,7 +24,10 @@ actually paid per usable record.
 
 > **$0.005 per record we can adjudicate.**
 > **The first 200 adjudicated records of every run are free — always.**
-> **We never charge more than half of what you tell us you paid for the data.**
+> **Never more than $0.75 per 1,000 records you gave us.**
+
+Every one of those three numbers is checkable against figures printed in your
+receipt. Nothing here asks you to take our word for it.
 
 Three consequences worth stating plainly:
 
@@ -36,10 +39,33 @@ Three consequences worth stating plainly:
    every record we delivered — because most of that list falls into "we don't
    know" on the email column and we do not bill it. Your list will differ: the
    more of it we can adjudicate, the more you pay, up to $0.005 per record, and
-   never more than half of what you tell us the data cost.
+   never past the cap above.
 3. **Nothing here will ever be taken away.** The free allowance is permanent,
    not a trial. There is no future day on which this becomes more expensive
    than it says today.
+
+### Two numbers, and you pay the lower
+
+We work out what you owe twice, and charge whichever comes out smaller:
+
+- **By the record**: `(records we adjudicated − 200 free) × $0.005`
+- **By the size of the job**: `records you gave us ÷ 1000 × $0.75`
+
+That second figure is a ceiling, not a price — it is there so that a very clean
+list cannot end up costing more to check than it is worth. It is worked out on
+the records **you** handed us, which we count in front of you: there is no
+figure you have to declare, and nothing you could declare that would change it.
+
+| You give us | We can adjudicate | By the record | Ceiling | **You pay** |
+|---:|---:|---:|---:|---:|
+| 999 | 174 (17%) | $0.00 | $0.75 | **$0.00** |
+| 5,000 | 875 (17%) | $3.38 | $3.75 | **$3.38** |
+| 5,000 | 3,175 (64%) | $14.88 | $3.75 | **$3.75** |
+| 100,000 | 17,500 (17%) | $86.50 | $75.00 | **$75.00** |
+
+The first row is free because 174 adjudicated records all sit inside the 200
+you get free every run — not because of the ceiling. On a typical B2B list,
+runs below about 1,100 records cost nothing at all.
 
 The price shown is the one that applies on Apify's **Free** plan. If your
 account is on a higher plan, Apify's own tier discount applies and you pay

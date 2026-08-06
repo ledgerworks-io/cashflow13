@@ -197,16 +197,17 @@ export async function generateVerdictReceipt(
     ws.getCell("B26").value = p.pricePerRecordUsd;
     ws.getCell("B26").numFmt = "#,##0.00000";
 
-    const conTetto = options.amountPaidUsd !== undefined;
-    if (conTetto) {
-      ws.getCell("A27").value = t("adj.billing.cap", loc);
-      ws.getCell("B27").value = { formula: `B5*${p.capFractionOfDeclaredSpend}` };
-      ws.getCell("B27").numFmt = "#,##0.00000";
-    }
+    // Il tetto discende dai record CONSEGNATI (B6, che a sua volta li conta),
+    // non da quanto il cliente ha dichiarato di aver speso. Quindi c'è sempre,
+    // anche quando l'importo pagato non è stato indicato — ed è verificabile
+    // con una divisione invece che sulla fiducia.
+    ws.getCell("A27").value = t("adj.billing.cap", loc);
+    ws.getCell("B27").value = { formula: `B6/1000*${p.capUsdPer1000Delivered}` };
+    ws.getCell("B27").numFmt = "#,##0.00000";
 
     ws.getCell("A28").value = t("adj.billing.total", loc);
     const totale = ws.getCell("B28");
-    totale.value = { formula: conTetto ? "MIN(B25*B26,B27)" : "B25*B26" };
+    totale.value = { formula: "MIN(B25*B26,B27)" };
     totale.numFmt = "#,##0.00000";
     totale.font = { bold: true };
     totale.fill = { type: "pattern", pattern: "solid", fgColor: { argb: VERDE } };
