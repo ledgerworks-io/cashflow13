@@ -6,7 +6,7 @@
     "datasetId": {
       "title": "Dataset to adjudicate",
       "type": "string",
-      "description": "The dataset you want checked, record by record. It is read only — this Actor never writes to it, and has no access to anything else in your account.",
+      "description": "The dataset you want checked, record by record. It is read only — this Actor never writes to it, and has no access to anything else in your account. Leave it empty to run a short built-in DEMO on an example list: it shows you exactly what you get back, and it is free (well inside the 200 free records every run).",
       "editor": "resourcePicker",
       "resourceType": "dataset",
       "resourcePermissions": [
@@ -55,7 +55,5 @@
       ]
     }
   },
-  "required": [
-    "datasetId"
-  ]
+  "required": []
 }

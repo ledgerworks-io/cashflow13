@@ -14,6 +14,12 @@ import {
 import { generateVerdictReceipt } from "../src/adjudicate/receipt.js";
 import { DEFAULT_POLICY, computeCharge } from "../src/adjudicate/billing.js";
 import { RECEIPT_KEY } from "../src/adjudicate/platform.js";
+import {
+  DEMO_DEDUPE_KEYS,
+  DEMO_EMAIL_FIELD,
+  DEMO_FILTERS,
+  demoRows,
+} from "../src/adjudicate/demo.js";
 import type { Adjudication } from "../src/adjudicate/verdict.js";
 import type { FilterRule } from "../src/audit/report.js";
 
@@ -487,6 +493,77 @@ describe("lo schema di uscita manda il cliente dove il codice scrive davvero", (
   it("le due uscite promesse sono esattamente due, e sono quelle che consegniamo", () => {
     // L'attore fa due consegne: la ricevuta e i verdetti. Nient'altro.
     expect(Object.keys(OUT.properties).sort()).toEqual(["receipt", "verdicts"]);
+  });
+});
+
+/**
+ * La dimostrazione, e il motivo per cui è nata.
+ *
+ * Il 7 agosto 2026 Apify ha marcato l'attore **«Under maintenance»**: il loro
+ * controllo automatico esegue ogni attore con lo schema **precompilato** e si
+ * aspetta che finisca entro 5 minuti. `datasetId` era obbligatorio e senza
+ * valore precompilato, quindi la corsa non partiva nemmeno —
+ * `invalid-input: Field input.datasetId is required` — e nell'elenco delle
+ * esecuzioni non compariva niente, perché non c'era niente da eseguire.
+ *
+ * La lezione, che vale oltre Apify: **un campo obbligatorio senza valore
+ * predefinito rende il prodotto non provabile da chi non lo conosce già.** Lo
+ * stesso vale per il cliente che preme «Start» per curiosare.
+ */
+describe("premere «Start» senza input mostra il prodotto, non un errore", () => {
+  const SCHEMA = JSON.parse(
+    readFileSync(
+      new URL("../actors/lead-adjudicator/.actor/input_schema.json", import.meta.url),
+      "utf8",
+    ),
+  ) as { required?: string[]; properties: Record<string, { default?: unknown; prefill?: unknown }> };
+
+  function giudizioDemo() {
+    const righe = demoRows();
+    return adjudicate(righe, {
+      dedupeKeys: DEMO_DEDUPE_KEYS,
+      filters: DEMO_FILTERS as FilterRule[],
+      emailField: DEMO_EMAIL_FIELD,
+      emailLookup: giudiceEmail,
+    });
+  }
+
+  it("l'attore è eseguibile con l'input predefinito: nessun campo senza valore è obbligatorio", () => {
+    // È esattamente il controllo che Apify fa, e che il 7 agosto falliva.
+    for (const nome of SCHEMA.required ?? []) {
+      const p = SCHEMA.properties[nome]!;
+      expect(
+        p.default !== undefined || p.prefill !== undefined,
+        `«${nome}» è obbligatorio ma non ha né default né prefill: l'attore non è eseguibile con i predefiniti`,
+      ).toBe(true);
+    }
+  });
+
+  it("la dimostrazione produce tutti e quattro i verdetti", () => {
+    // Se ne mancasse uno, la dimostrazione mostrerebbe metà prodotto — e
+    // l'«undecidable» è la metà che ci distingue.
+    const s = giudizioDemo().summary;
+    for (const v of VERDICTS) {
+      expect(s[v as "good" | "rejected" | "duplicate" | "undecidable"], `manca il verdetto ${v}`)
+        .toBeGreaterThan(0);
+    }
+  });
+
+  it("la dimostrazione non addebita MAI niente", () => {
+    // Sta dentro la quota gratuita per costruzione: chi prova non paga, e non
+    // deve dipendere dal fatto che qualcuno se ne ricordi.
+    const g = giudizioDemo();
+    const c = computeCharge(g, DEFAULT_POLICY);
+    expect(g.summary.billable).toBeLessThan(DEFAULT_POLICY.freePerRun);
+    expect(c.totalUsd).toBe(0);
+    expect(c.billedEvents).toBe(0);
+  });
+
+  it("usa pochi domini distinti, così la corsa finisce in secondi e non in minuti", () => {
+    // Il controllo di Apify concede 5 minuti. Il giro di DNS è l'unica parte
+    // lenta, e costa per DOMINIO, non per indirizzo.
+    const domini = new Set(demoRows().map((r) => r.email.split("@")[1]).filter(Boolean));
+    expect(domini.size).toBeLessThanOrEqual(6);
   });
 });
 

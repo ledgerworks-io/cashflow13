@@ -23,6 +23,12 @@
  *    il calcolo.
  */
 import { adjudicate, verdictRow, type EmailAdjudication } from "./verdict.js";
+import {
+  DEMO_DEDUPE_KEYS,
+  DEMO_EMAIL_FIELD,
+  DEMO_FILTERS,
+  demoRows,
+} from "./demo.js";
 import { buildEmailLookup, nodeDnsResolver } from "./email.js";
 import {
   DEFAULT_POLICY,
@@ -187,14 +193,40 @@ async function charge(events: number): Promise<void> {
 export async function main(): Promise<void> {
   const input = await json<ActorInput>(`${API}/key-value-stores/${KV}/records/INPUT`);
   const datasetId = input.datasetId;
-  if (!datasetId) throw new Error("manca datasetId: indica il dataset da aggiudicare");
 
   const amountPaidUsd = toAmount(input.amountPaidUsd);
   const locale: Locale = input.locale === "it" ? "it" : "en";
-  const emailField = input.emailField?.trim() || undefined;
 
-  console.log(`dataset: ${datasetId}`);
-  const rows = await allRows(datasetId);
+  // Senza dataset si mostra cosa fa lo strumento, invece di dare errore.
+  // Prima del 7 agosto 2026 qui c'era un `throw`: `datasetId` era obbligatorio
+  // e senza valore precompilato, quindi l'attore NON era eseguibile con l'input
+  // predefinito — e il controllo di qualità di Apify, che fa esattamente
+  // quello, non riusciva nemmeno a far partire una corsa. Vedi `demo.ts`.
+  const dimostrazione = !datasetId;
+  let rows: unknown[];
+  let emailField: string | undefined;
+  let dedupeKeys: string[];
+  let filters: FilterRule[];
+  let sorgente: string;
+
+  if (dimostrazione) {
+    console.log(
+      "nessun dataset indicato: eseguo la DIMOSTRAZIONE su una lista di esempio. "
+      + "Per aggiudicare i tuoi dati, indica «datasetId».",
+    );
+    rows = demoRows();
+    emailField = DEMO_EMAIL_FIELD;
+    dedupeKeys = DEMO_DEDUPE_KEYS;
+    filters = DEMO_FILTERS;
+    sorgente = "DEMO — lista di esempio, non i tuoi dati";
+  } else {
+    console.log(`dataset: ${datasetId}`);
+    rows = await allRows(datasetId!);
+    emailField = input.emailField?.trim() || undefined;
+    dedupeKeys = input.dedupeKeys ?? [];
+    filters = input.filters ?? [];
+    sorgente = `dataset ${datasetId}`;
+  }
   console.log(`righe lette: ${rows.length}`);
 
   // I domini si risolvono prima, in blocco e una volta per dominio: il motore
@@ -209,8 +241,8 @@ export async function main(): Promise<void> {
   }
 
   const result = adjudicate(rows, {
-    dedupeKeys: input.dedupeKeys ?? [],
-    filters: input.filters ?? [],
+    dedupeKeys,
+    filters,
     ...(emailField ? { emailField, emailLookup } : {}),
     amountPaidUsd,
   });
@@ -242,7 +274,7 @@ export async function main(): Promise<void> {
   const xlsx = await generateVerdictReceipt(result, {
     amountPaidUsd,
     locale,
-    source: `dataset ${datasetId}`,
+    source: sorgente,
     policy,
   });
   await consegna(

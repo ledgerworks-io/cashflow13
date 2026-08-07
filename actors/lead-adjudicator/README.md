@@ -91,7 +91,7 @@ held only for the life of the run.
 
 | Field | Required | What it is |
 |---|---|---|
-| `datasetId` | yes | The dataset to adjudicate. Read-only access, that dataset only. |
+| `datasetId` | no | The dataset to adjudicate. Read-only access, that dataset only. **Leave empty to run a free built-in demo** and see what you get back. |
 | `filters` | no | The criteria you asked for, e.g. `[{"field":"region","op":"equals","value":"Lombardia"}]` |
 | `dedupeKeys` | no | Fields that identify one record, e.g. `["email"]` |
 | `emailField` | no | Name of the email field, to turn on the email column |
